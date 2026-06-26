@@ -1,0 +1,8 @@
+{
+  "title": "별빛 점프",
+  "description": "별 토끼가 구름 발판을 밟으며 반짝이를 모으는 작은 점프 게임.",
+  "createdAt": "2026-06-26",
+  "tags": ["arcade", "jump", "sample"],
+  "controls": ["← →", "Space", "Touch buttons"]
+}
+

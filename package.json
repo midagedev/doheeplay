@@ -1,0 +1,16 @@
+{
+  "name": "doheeplay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-site.mjs",
+    "check": "npm run validate && npm run build",
+    "new-game": "node scripts/new-game.mjs",
+    "validate": "node scripts/validate-game.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
+

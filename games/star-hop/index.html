@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>별빛 점프</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1f2430;
+        --sky: #dff7ff;
+        --sea: #176b87;
+        --leaf: #2f7d5d;
+        --sun: #f8c537;
+        --rose: #d95d76;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        overflow-x: hidden;
+      }
+
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgb(248 197 55 / 14%) 0 22px, transparent 22px 44px),
+          linear-gradient(180deg, #fff8e8 0%, #e5f7ff 100%);
+      }
+
+      main {
+        width: min(760px, 100%);
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 10vw, 4.2rem);
+        line-height: 0.9;
+        letter-spacing: 0;
+      }
+
+      .scoreboard {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: end;
+        font-weight: 900;
+      }
+
+      .scoreboard span {
+        min-width: 88px;
+        min-height: 38px;
+        display: inline-grid;
+        place-items: center;
+        border: 3px solid var(--ink);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .stage-wrap {
+        position: relative;
+        border: 4px solid var(--ink);
+        border-radius: 8px;
+        background: var(--sky);
+        box-shadow: 0 18px 42px rgb(31 36 48 / 16%);
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        touch-action: none;
+        background: linear-gradient(180deg, #bfefff 0%, #fff6d6 100%);
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgb(255 250 242 / 82%);
+      }
+
+      .overlay[hidden] {
+        display: none;
+      }
+
+      .panel {
+        width: min(420px, 100%);
+        display: grid;
+        gap: 14px;
+        text-align: center;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: clamp(1.7rem, 8vw, 3rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .panel p {
+        margin: 0;
+        color: #4e5965;
+        line-height: 1.5;
+      }
+
+      button {
+        min-height: 48px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 18px;
+        background: var(--ink);
+        color: white;
+        font: inherit;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .touch-controls {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .touch-controls button {
+        background: var(--sea);
+      }
+
+      .touch-controls button:nth-child(2) {
+        background: var(--rose);
+      }
+
+      .touch-controls button:nth-child(3) {
+        background: var(--leaf);
+      }
+
+      @media (max-width: 560px) {
+        body {
+          padding: 12px;
+          align-items: start;
+        }
+
+        header {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .scoreboard {
+          justify-content: start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>별빛 점프</h1>
+        <div class="scoreboard" aria-live="polite">
+          <span id="score">별 0</span>
+          <span id="best">최고 0</span>
+        </div>
+      </header>
+
+      <section class="stage-wrap" aria-label="Game stage">
+        <canvas id="game" width="800" height="600"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="panel">
+            <h2 id="overlayTitle">Ready?</h2>
+            <p id="overlayText">구름 발판을 밟고 별을 모아요. 아래 버튼이나 키보드로 움직일 수 있어요.</p>
+            <button type="button" id="startButton">Start</button>
+          </div>
+        </div>
+      </section>
+
+      <nav class="touch-controls" aria-label="Touch controls">
+        <button type="button" data-control="left">←</button>
+        <button type="button" data-control="jump">Jump</button>
+        <button type="button" data-control="right">→</button>
+      </nav>
+    </main>
+
+    <script>
+      const canvas = document.querySelector("#game");
+      const ctx = canvas.getContext("2d");
+      const scoreEl = document.querySelector("#score");
+      const bestEl = document.querySelector("#best");
+      const overlay = document.querySelector("#overlay");
+      const overlayTitle = document.querySelector("#overlayTitle");
+      const overlayText = document.querySelector("#overlayText");
+      const startButton = document.querySelector("#startButton");
+
+      const keys = new Set();
+      const world = {
+        width: canvas.width,
+        height: canvas.height,
+        gravity: 0.72,
+        running: false,
+        score: 0,
+        best: Number(localStorage.getItem("star-hop-best") || 0),
+        camera: 0,
+        lastTime: 0
+      };
+
+      const player = {
+        x: 120,
+        y: 360,
+        w: 42,
+        h: 48,
+        vx: 0,
+        vy: 0,
+        grounded: false
+      };
+
+      const platforms = [];
+      const stars = [];
+
+      function resetWorld() {
+        world.running = true;
+        world.score = 0;
+        world.camera = 0;
+        world.lastTime = 0;
+        player.x = 120;
+        player.y = 360;
+        player.vx = 0;
+        player.vy = 0;
+        player.grounded = false;
+        platforms.length = 0;
+        stars.length = 0;
+
+        for (let i = 0; i < 10; i += 1) {
+          const x = i * 170;
+          const y = 430 - (i % 3) * 52;
+          platforms.push({ x, y, w: i === 0 ? 240 : 132, h: 24 });
+          if (i > 0) {
+            stars.push({ x: x + 58, y: y - 44, r: 15, taken: false });
+          }
+        }
+
+        overlay.hidden = true;
+        updateScore();
+        requestAnimationFrame(loop);
+      }
+
+      function updateScore() {
+        scoreEl.textContent = `별 ${world.score}`;
+        bestEl.textContent = `최고 ${world.best}`;
+      }
+
+      function addMoreWorld() {
+        const last = platforms[platforms.length - 1];
+        while (last && platforms[platforms.length - 1].x < world.camera + world.width + 420) {
+          const prev = platforms[platforms.length - 1];
+          const x = prev.x + 145 + Math.random() * 75;
+          const y = 250 + Math.random() * 230;
+          const w = 110 + Math.random() * 80;
+          platforms.push({ x, y, w, h: 24 });
+          stars.push({ x: x + w / 2, y: y - 48, r: 15, taken: false });
+        }
+      }
+
+      function jump() {
+        if (player.grounded) {
+          player.vy = -15.5;
+          player.grounded = false;
+        }
+      }
+
+      function update() {
+        const left = keys.has("ArrowLeft") || keys.has("a") || keys.has("left");
+        const right = keys.has("ArrowRight") || keys.has("d") || keys.has("right");
+
+        if (left) {
+          player.vx -= 0.75;
+        }
+        if (right) {
+          player.vx += 0.75;
+        }
+        if (keys.has(" ") || keys.has("ArrowUp") || keys.has("w") || keys.has("jump")) {
+          jump();
+        }
+
+        player.vx *= 0.86;
+        player.vx = Math.max(-8, Math.min(8, player.vx));
+        player.vy += world.gravity;
+
+        const previousBottom = player.y + player.h;
+        player.x += player.vx;
+        player.y += player.vy;
+        player.grounded = false;
+
+        for (const platform of platforms) {
+          const withinX = player.x + player.w > platform.x && player.x < platform.x + platform.w;
+          const crossingTop = previousBottom <= platform.y && player.y + player.h >= platform.y;
+          if (withinX && crossingTop && player.vy >= 0) {
+            player.y = platform.y - player.h;
+            player.vy = 0;
+            player.grounded = true;
+          }
+        }
+
+        for (const star of stars) {
+          if (star.taken) {
+            continue;
+          }
+          const dx = player.x + player.w / 2 - star.x;
+          const dy = player.y + player.h / 2 - star.y;
+          if (Math.hypot(dx, dy) < star.r + 24) {
+            star.taken = true;
+            world.score += 1;
+            if (world.score > world.best) {
+              world.best = world.score;
+              localStorage.setItem("star-hop-best", String(world.best));
+            }
+            updateScore();
+          }
+        }
+
+        world.camera = Math.max(0, player.x - 220);
+        addMoreWorld();
+
+        if (player.y > world.height + 120) {
+          endGame();
+        }
+      }
+
+      function drawCloud(x, y, w, h) {
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#1f2430";
+        ctx.lineWidth = 4;
+        roundRect(x, y, w, h, 12, true, true);
+        ctx.fillStyle = "#dff7ff";
+        ctx.fillRect(x + 8, y + h - 5, w - 16, 7);
+      }
+
+      function drawStar(x, y, r) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = "#f8c537";
+        ctx.strokeStyle = "#1f2430";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i += 1) {
+          const radius = i % 2 === 0 ? r : r * 0.48;
+          const angle = -Math.PI / 2 + i * Math.PI / 5;
+          ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPlayer() {
+        const x = player.x - world.camera;
+        const y = player.y;
+        ctx.fillStyle = "#d95d76";
+        ctx.strokeStyle = "#1f2430";
+        ctx.lineWidth = 4;
+        roundRect(x, y, player.w, player.h, 14, true, true);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x + 14, y + 18, 5, 0, Math.PI * 2);
+        ctx.arc(x + 28, y + 18, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1f2430";
+        ctx.beginPath();
+        ctx.arc(x + 15, y + 18, 2, 0, Math.PI * 2);
+        ctx.arc(x + 29, y + 18, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, world.width, world.height);
+
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 18; i += 1) {
+          const x = (i * 101 - world.camera * 0.28) % (world.width + 160) - 80;
+          const y = 48 + (i % 5) * 42;
+          ctx.globalAlpha = 0.82;
+          ctx.beginPath();
+          ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (const platform of platforms) {
+          drawCloud(platform.x - world.camera, platform.y, platform.w, platform.h);
+        }
+
+        for (const star of stars) {
+          if (!star.taken) {
+            drawStar(star.x - world.camera, star.y, star.r);
+          }
+        }
+
+        drawPlayer();
+      }
+
+      function loop(time) {
+        if (!world.running) {
+          return;
+        }
+        if (time - world.lastTime > 1000 / 60) {
+          update();
+          draw();
+          world.lastTime = time;
+        }
+        requestAnimationFrame(loop);
+      }
+
+      function endGame() {
+        world.running = false;
+        draw();
+        overlayTitle.textContent = "한 번 더!";
+        overlayText.textContent = `별 ${world.score}개를 모았어요.`;
+        startButton.textContent = "Restart";
+        overlay.hidden = false;
+      }
+
+      function roundRect(x, y, width, height, radius, fill, stroke) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r);
+        ctx.arcTo(x, y + height, x, y, r);
+        ctx.arcTo(x, y, x + width, y, r);
+        ctx.closePath();
+        if (fill) {
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.stroke();
+        }
+      }
+
+      function press(control, pressed) {
+        if (pressed) {
+          keys.add(control);
+        } else {
+          keys.delete(control);
+        }
+      }
+
+      window.addEventListener("keydown", (event) => {
+        if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+          event.preventDefault();
+        }
+        keys.add(event.key);
+      });
+
+      window.addEventListener("keyup", (event) => {
+        keys.delete(event.key);
+      });
+
+      for (const button of document.querySelectorAll("[data-control]")) {
+        const control = button.dataset.control;
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          button.setPointerCapture(event.pointerId);
+          press(control, true);
+        });
+        button.addEventListener("pointerup", () => press(control, false));
+        button.addEventListener("pointercancel", () => press(control, false));
+        button.addEventListener("lostpointercapture", () => press(control, false));
+      }
+
+      startButton.addEventListener("click", resetWorld);
+      updateScore();
+      draw();
+    </script>
+  </body>
+</html>
