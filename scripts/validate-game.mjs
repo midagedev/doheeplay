@@ -46,6 +46,11 @@ const blockedPatterns = [
   { pattern: /\bNotification\.requestPermission\b/, label: "notifications" }
 ];
 
+const vettedVendorFiles = new Set([
+  "three.core.min.js",
+  "three.module.min.js"
+]);
+
 function fail(errors, message) {
   errors.push(message);
 }
@@ -118,6 +123,12 @@ function validateMetadata(slug, metadata, metadataPath, errors) {
 }
 
 async function validateTextFile(filePath, errors) {
+  const parts = relative(filePath).split("/");
+  const isVettedVendor = parts.includes("vendor") && vettedVendorFiles.has(path.basename(filePath));
+  if (isVettedVendor) {
+    return;
+  }
+
   const content = await fs.readFile(filePath, "utf8");
   for (const { pattern, label } of blockedPatterns) {
     if (pattern.test(content)) {

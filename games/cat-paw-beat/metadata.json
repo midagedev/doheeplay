@@ -1,0 +1,7 @@
+{
+  "title": "고양이 발바닥 리듬",
+  "description": "노래에 맞춰 내려오는 고양이 발바닥을 반짝 줄에서 톡톡 누르는 리듬 게임.",
+  "createdAt": "2026-06-26",
+  "tags": ["rhythm", "cat", "touch"],
+  "controls": ["Touch lanes", "Q W E R"]
+}

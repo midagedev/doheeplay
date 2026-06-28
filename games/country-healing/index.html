@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>블록 마을 산책</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #21302d;
+        --panel: rgb(255 250 231 / 88%);
+        --panel-strong: rgb(255 250 231 / 96%);
+        --line: rgb(33 48 45 / 86%);
+        --sun: #f3c84d;
+        --leaf: #4f9961;
+        --water: #67b8d7;
+        --berry: #c95d69;
+        --shadow: 0 12px 32px rgb(17 32 28 / 18%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: #bfe4f4;
+      }
+
+      #world {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        touch-action: none;
+        image-rendering: pixelated;
+      }
+
+      .hud {
+        position: fixed;
+        top: max(12px, env(safe-area-inset-top));
+        left: max(12px, env(safe-area-inset-left));
+        width: min(430px, calc(100vw - 24px));
+        display: grid;
+        gap: 8px;
+        pointer-events: none;
+      }
+
+      .title-row,
+      .message,
+      .stat {
+        border: 3px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(6px);
+      }
+
+      .title-row {
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.18rem, 3vw, 1.62rem);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .title-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 0 0 auto;
+      }
+
+      .time {
+        min-width: 54px;
+        padding: 7px 10px;
+        border: 2px solid var(--line);
+        border-radius: 999px;
+        background: var(--sun);
+        font-weight: 950;
+        text-align: center;
+      }
+
+      .music-button {
+        width: 42px;
+        height: 38px;
+        border: 2px solid var(--line);
+        border-radius: 999px;
+        background: #fff6dc;
+        color: var(--ink);
+        font: inherit;
+        font-size: 1.12rem;
+        font-weight: 950;
+        cursor: pointer;
+        box-shadow: none;
+        touch-action: manipulation;
+      }
+
+      .music-button.off {
+        background: rgb(255 250 231 / 82%);
+        color: rgb(33 48 45 / 48%);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .stat {
+        min-height: 42px;
+        display: grid;
+        place-items: center;
+        padding: 6px 8px;
+        font-weight: 950;
+      }
+
+      .message {
+        min-height: 58px;
+        display: grid;
+        align-items: center;
+        padding: 11px 13px;
+        background: var(--panel-strong);
+        font-weight: 850;
+        line-height: 1.35;
+      }
+
+      .action-button {
+        position: fixed;
+        right: max(14px, env(safe-area-inset-right));
+        bottom: max(18px, env(safe-area-inset-bottom));
+        min-width: 138px;
+        min-height: 58px;
+        padding: 0 18px;
+        border: 3px solid var(--line);
+        border-radius: 8px;
+        background: var(--sun);
+        color: var(--ink);
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 950;
+        cursor: pointer;
+        box-shadow: 0 8px 0 rgb(33 48 45 / 18%), var(--shadow);
+        touch-action: manipulation;
+      }
+
+      button:focus-visible {
+        outline: 4px solid rgb(255 255 255 / 90%);
+        outline-offset: 3px;
+      }
+
+      .dpad {
+        position: fixed;
+        left: max(14px, env(safe-area-inset-left));
+        bottom: max(18px, env(safe-area-inset-bottom));
+        width: 164px;
+        display: grid;
+        grid-template-columns: repeat(3, 50px);
+        grid-template-rows: repeat(2, 50px);
+        gap: 7px;
+      }
+
+      .dpad button {
+        width: 50px;
+        height: 50px;
+        border: 3px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+        color: var(--ink);
+        font: inherit;
+        font-size: 1.25rem;
+        font-weight: 950;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        touch-action: none;
+      }
+
+      .dpad button[data-move="up"] {
+        grid-column: 2;
+      }
+
+      .dpad button[data-move="left"] {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .dpad button[data-move="down"] {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
+      .dpad button[data-move="right"] {
+        grid-column: 3;
+        grid-row: 2;
+      }
+
+      .character-strip {
+        position: fixed;
+        left: 50%;
+        bottom: max(16px, env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        width: min(450px, calc(100vw - 360px));
+        min-width: 230px;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px;
+        border: 3px solid var(--line);
+        border-radius: 8px;
+        background: rgb(255 250 231 / 72%);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(6px);
+      }
+
+      .character-strip button {
+        width: 42px;
+        height: 48px;
+        min-width: 42px;
+        padding: 0;
+        overflow: hidden;
+        border: 2px solid var(--line);
+        border-radius: 7px;
+        background: #fff6dc;
+        cursor: pointer;
+      }
+
+      .character-strip button.selected {
+        background: var(--sun);
+        transform: translateY(2px);
+      }
+
+      .portrait {
+        width: 96px;
+        height: 128px;
+        display: block;
+        image-rendering: pixelated;
+        transform: translate(-27px, -38px) scale(0.44);
+        transform-origin: top left;
+        background-image: url("assets/characters.png");
+        background-size: 864px 1024px;
+      }
+
+      @media (max-width: 820px) {
+        .hud {
+          width: calc(100vw - 24px);
+          gap: 7px;
+        }
+
+        .title-row {
+          min-height: 50px;
+        }
+
+        .message {
+          min-height: 50px;
+          padding: 9px 11px;
+          font-size: 0.92rem;
+        }
+
+        .character-strip {
+          bottom: calc(max(18px, env(safe-area-inset-bottom)) + 112px);
+          width: calc(100vw - 24px);
+          min-width: 0;
+          justify-content: flex-start;
+          overflow-x: auto;
+        }
+
+        .dpad {
+          width: 143px;
+          grid-template-columns: repeat(3, 43px);
+          grid-template-rows: repeat(2, 43px);
+        }
+
+        .dpad button {
+          width: 43px;
+          height: 43px;
+        }
+
+        .action-button {
+          min-width: 116px;
+          min-height: 50px;
+          padding: 0 12px;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .stats {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .stat,
+        .time,
+        .action-button {
+          font-size: 0.9rem;
+        }
+
+        .character-strip button {
+          width: 38px;
+          min-width: 38px;
+          height: 44px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="world" tabindex="0" aria-label="블록 마을 산책"></canvas>
+
+    <section class="hud" aria-live="polite">
+      <div class="title-row">
+        <h1>블록 마을 산책</h1>
+        <div class="title-actions">
+          <button class="music-button" type="button" id="musicButton" aria-label="배경음악 켜기" title="배경음악 켜기">♪</button>
+          <div class="time" id="time">아침</div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat" id="heart">평온 0</div>
+        <div class="stat" id="hero">탄지로</div>
+        <div class="stat" id="bag">바구니 0</div>
+      </div>
+      <div class="message" id="message">블록 마을에 아침 바람이 불어요.</div>
+    </section>
+
+    <div class="dpad" aria-label="이동">
+      <button type="button" data-move="up" aria-label="위">↑</button>
+      <button type="button" data-move="left" aria-label="왼쪽">←</button>
+      <button type="button" data-move="down" aria-label="아래">↓</button>
+      <button type="button" data-move="right" aria-label="오른쪽">→</button>
+    </div>
+    <button class="action-button" type="button" id="actionButton">살펴보기</button>
+    <nav class="character-strip" aria-label="캐릭터" id="characterStrip"></nav>
+
+    <script>
+      window.__countryBoot = { errors: [] };
+      window.addEventListener("error", (event) => {
+        window.__countryBoot.errors.push(event.message || "unknown error");
+      });
+      window.addEventListener("unhandledrejection", (event) => {
+        const reason = event.reason;
+        window.__countryBoot.errors.push(reason && reason.message ? reason.message : String(reason));
+      });
+    </script>
+    <script type="module">
+      import * as THREE from "./vendor/three.module.min.js";
+
+      try {
+      const canvas = document.querySelector("#world");
+      const heartEl = document.querySelector("#heart");
+      const heroEl = document.querySelector("#hero");
+      const timeEl = document.querySelector("#time");
+      const bagEl = document.querySelector("#bag");
+      const messageEl = document.querySelector("#message");
+      const musicButton = document.querySelector("#musicButton");
+      const actionButton = document.querySelector("#actionButton");
+      const characterStrip = document.querySelector("#characterStrip");
+      const backgroundMusic = new Audio("assets/field-post-office.m4a");
+
+      const frameW = 96;
+      const frameH = 128;
+      const columns = 9;
+      const rows = 8;
+      const keys = new Set();
+      const touchMoves = new Set();
+      const entities = [];
+      const villagers = [];
+      const sparkles = [];
+      const visited = new Set();
+      const collisionBoxes = [];
+      const playerRadius = 0.34;
+      let lastActionAt = 0;
+      let lastJumpAt = 0;
+      const musicState = {
+        enabled: true,
+        blocked: false,
+        error: ""
+      };
+      const characterProfiles = [
+        { name: "탄지로", role: "검사", intro: "탄지로는 따뜻한 마음으로 블록 마을을 살펴봐요.", greeting: "탄지로: 괜찮아, 천천히 같이 걸어가자." },
+        { name: "네즈코", role: "착한 도깨비", intro: "네즈코는 귀엽게 고개를 끄덕이며 따라와요.", greeting: "네즈코: 우웅!" },
+        { name: "기유", role: "차가운 검사", intro: "기유는 조용히 강가 쪽을 바라보고 있어요.", greeting: "기유: 말은 적어도 길은 잘 알고 있어." },
+        { name: "렌고쿠", role: "당당한 검사", intro: "렌고쿠는 씩씩하게 길 한가운데에 서 있어요.", greeting: "렌고쿠: 당당하게 가자! 오늘 산책도 훌륭하다!" },
+        { name: "시노부", role: "웃고 있는 검사", intro: "시노부는 웃고 있지만 속으로는 살짝 화가 난 듯해요.", greeting: "시노부: 후후, 아주 차분하게 걸어볼까요?" },
+        { name: "아카자", role: "나쁜 도깨비", intro: "아카자는 힘이 넘쳐 보이지만 지금은 산책길을 지켜봐요.", greeting: "아카자: 강한 발걸음이군. 하지만 길은 천천히 걷자." },
+        { name: "코쿠시보", role: "매우 센 도깨비", intro: "코쿠시보는 조용하고 무시무시한 기운으로 서 있어요.", greeting: "코쿠시보: 고요한 길에도 강함은 숨어 있다." },
+        { name: "무잔", role: "도깨비의 왕", intro: "무잔은 하얀 모자를 쓰고 마을 끝을 천천히 걸어요.", greeting: "무잔: 이 마을의 길도 나쁘지 않군." },
+        { name: "타마요", role: "조용한 도깨비 의사", intro: "타마요는 찻집에서 조용히 모두를 돌봐줘요.", greeting: "타마요: 무리하지 말고 쉬어가세요." }
+      ];
+      const characterNames = characterProfiles.map((profile) => profile.name);
+
+      const state = {
+        peace: 0,
+        basket: 0,
+        selectedCharacter: 0,
+        dayTime: "아침",
+        tapTarget: null,
+        jumpCount: 0,
+        lastCommand: ""
+      };
+
+      function selectedProfile() {
+        return characterProfiles[state.selectedCharacter];
+      }
+
+      const places = [
+        { id: "home", name: "작은 집", x: -8, z: -6.5, radius: 2.7, action: "차 마시기", peace: 8, basket: 0, color: 0xf3c84d, message: "따뜻한 차 향이 나무집 안에 가득해요." },
+        { id: "field", name: "논", x: -8.5, z: 4.8, radius: 3.1, action: "물 주기", peace: 7, basket: 1, color: 0x79c86b, message: "논물이 햇빛을 받아 네모네모 반짝여요." },
+        { id: "tea", name: "찻밭", x: 8.7, z: 3.5, radius: 3.1, action: "찻잎 따기", peace: 7, basket: 2, color: 0x4f9961, message: "연한 찻잎이 바구니에 사각사각 담겼어요." },
+        { id: "shrine", name: "작은 신사", x: 8.3, z: -7.4, radius: 2.9, action: "인사하기", peace: 9, basket: 0, color: 0xe05e42, message: "빨간 문 사이로 맑은 바람이 지나가요." },
+        { id: "cat", name: "낮잠 고양이", x: 0.5, z: -1.4, radius: 2.4, action: "쓰다듬기", peace: 8, basket: 0, color: 0xe9a356, message: "고양이가 따뜻한 블록 위에서 조용히 골골거려요." },
+        { id: "river", name: "강가", x: 1.5, z: 8.3, radius: 3.0, action: "쉬어가기", peace: 6, basket: 0, color: 0x67b8d7, message: "물소리가 다리 아래에서 톡톡 울려요." }
+      ];
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xbfe4f4);
+      scene.fog = new THREE.Fog(0xbfe4f4, 24, 42);
+
+      const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 80);
+      camera.position.set(6, 7.5, 9);
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0xbfe4f4, 1);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const world = new THREE.Group();
+      scene.add(world);
+
+      const hemi = new THREE.HemisphereLight(0xf7fbff, 0x6a8f5b, 2.0);
+      scene.add(hemi);
+
+      const sun = new THREE.DirectionalLight(0xfff1bd, 2.65);
+      sun.position.set(-8, 14, 7);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      sun.shadow.camera.left = -22;
+      sun.shadow.camera.right = 22;
+      sun.shadow.camera.top = 22;
+      sun.shadow.camera.bottom = -22;
+      scene.add(sun);
+
+      const materials = {
+        grass: new THREE.MeshStandardMaterial({ color: 0x6db960, roughness: 0.9 }),
+        grassDark: new THREE.MeshStandardMaterial({ color: 0x4f9961, roughness: 0.95 }),
+        dirt: new THREE.MeshStandardMaterial({ color: 0xb8844d, roughness: 0.88 }),
+        path: new THREE.MeshStandardMaterial({ color: 0xd9b466, roughness: 0.86 }),
+        water: new THREE.MeshStandardMaterial({ color: 0x67b8d7, transparent: true, opacity: 0.82, roughness: 0.35, metalness: 0.02 }),
+        rice: new THREE.MeshStandardMaterial({ color: 0x95d06c, roughness: 0.86 }),
+        tea: new THREE.MeshStandardMaterial({ color: 0x2f7b4c, roughness: 0.9 }),
+        wood: new THREE.MeshStandardMaterial({ color: 0x7b4e32, roughness: 0.78 }),
+        roof: new THREE.MeshStandardMaterial({ color: 0x394654, roughness: 0.8 }),
+        wall: new THREE.MeshStandardMaterial({ color: 0xf6e1b7, roughness: 0.82 }),
+        red: new THREE.MeshStandardMaterial({ color: 0xd84b35, roughness: 0.72 }),
+        stone: new THREE.MeshStandardMaterial({ color: 0x8f9a95, roughness: 0.92 }),
+        leaf: new THREE.MeshStandardMaterial({ color: 0x3e8c4d, roughness: 0.92 }),
+        leafLight: new THREE.MeshStandardMaterial({ color: 0x77b85f, roughness: 0.92 }),
+        flower: new THREE.MeshStandardMaterial({ color: 0xe56f84, roughness: 0.82 }),
+        cat: new THREE.MeshStandardMaterial({ color: 0xe9a356, roughness: 0.82 })
+      };
+
+      const blockGeo = new THREE.BoxGeometry(1, 1, 1);
+      const sparkleGeo = new THREE.BoxGeometry(0.13, 0.13, 0.13);
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.22);
+      const clock = new THREE.Clock();
+
+      let player = null;
+      let spriteBaseTexture = null;
+      let spritesReady = false;
+
+      function addCube(x, y, z, sx, sy, sz, material, parent = world) {
+        const mesh = new THREE.Mesh(blockGeo, material);
+        mesh.position.set(x, y, z);
+        mesh.scale.set(sx, sy, sz);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        parent.add(mesh);
+        return mesh;
+      }
+
+      function addBlocker(id, x, z, halfX, halfZ) {
+        collisionBoxes.push({
+          id,
+          minX: x - halfX,
+          maxX: x + halfX,
+          minZ: z - halfZ,
+          maxZ: z + halfZ
+        });
+      }
+
+      function isRiver(x, z) {
+        const center = 7.6 + Math.sin(x * 0.42) * 0.85;
+        return Math.abs(z - center) < 1.15;
+      }
+
+      function isBridgeArea(x, z) {
+        return x > -2.75 && x < 2.75 && z > 6.45 && z < 8.85;
+      }
+
+      function isBlockedPosition(x, z) {
+        if (isRiver(x, z) && !isBridgeArea(x, z)) {
+          return true;
+        }
+
+        return collisionBoxes.some((box) => (
+          x > box.minX - playerRadius &&
+          x < box.maxX + playerRadius &&
+          z > box.minZ - playerRadius &&
+          z < box.maxZ + playerRadius
+        ));
+      }
+
+      function isPath(x, z) {
+        const main = Math.abs(z - Math.sin(x * 0.45) * 1.15) < 0.92;
+        const cross = Math.abs(x + 2.2) < 0.82 && z > -8.8 && z < 7.2;
+        const shrine = z < -5.8 && x > 3.4 && x < 10.4;
+        return main || cross || shrine;
+      }
+
+      function buildGround() {
+        for (let x = -14; x <= 14; x += 1) {
+          for (let z = -12; z <= 12; z += 1) {
+            let material = materials.grass;
+            let y = -0.16;
+            let height = 0.32;
+
+            if (isRiver(x, z)) {
+              material = materials.water;
+              y = -0.21;
+              height = 0.18;
+            } else if (isPath(x, z)) {
+              material = materials.path;
+              y = -0.13;
+              height = 0.26;
+            } else if (x < -5 && x > -12 && z > 2 && z < 8) {
+              material = materials.dirt;
+            } else if (x > 5 && x < 13 && z > 1 && z < 8) {
+              material = materials.grassDark;
+            }
+
+            addCube(x, y, z, 1.02, height, 1.02, material);
+          }
+        }
+      }
+
+      function buildRiceField() {
+        for (let x = -11; x <= -6; x += 1) {
+          for (let z = 3; z <= 7; z += 1) {
+            addCube(x, 0.08, z, 0.75, 0.08, 0.16, materials.rice);
+            addCube(x, 0.11, z + 0.28, 0.62, 0.16, 0.08, materials.rice);
+          }
+        }
+        addCube(-8.5, 0.18, 2.2, 6.4, 0.22, 0.34, materials.wood);
+        addCube(-8.5, 0.18, 7.8, 6.4, 0.22, 0.34, materials.wood);
+        addCube(-11.8, 0.18, 5, 0.34, 0.22, 5.8, materials.wood);
+        addCube(-5.2, 0.18, 5, 0.34, 0.22, 5.8, materials.wood);
+      }
+
+      function buildTeaRows() {
+        for (let z = 2; z <= 7; z += 1.05) {
+          addCube(8.8, 0.26, z, 6.2, 0.34, 0.38, materials.tea);
+          addCube(8.8, 0.58, z, 5.5, 0.22, 0.28, materials.leafLight);
+        }
+      }
+
+      function buildHouse() {
+        addCube(-8.2, 0.7, -6.7, 3.2, 1.4, 2.4, materials.wall);
+        addCube(-8.2, 1.58, -6.7, 3.8, 0.55, 2.9, materials.roof);
+        addCube(-8.2, 1.95, -6.7, 2.8, 0.34, 2.2, materials.roof);
+        addCube(-8.2, 0.22, -5.28, 1.1, 0.22, 0.28, materials.wood);
+        addCube(-8.2, 0.76, -5.48, 0.72, 0.92, 0.12, materials.wood);
+        addCube(-9.15, 0.94, -5.47, 0.48, 0.42, 0.13, materials.water);
+        addCube(-7.25, 0.94, -5.47, 0.48, 0.42, 0.13, materials.water);
+        addBlocker("house", -8.2, -6.7, 1.82, 1.42);
+      }
+
+      function buildShrine() {
+        addCube(8.2, 0.24, -8.7, 4.2, 0.25, 1.2, materials.stone);
+        addCube(6.6, 1.05, -8.7, 0.28, 1.8, 0.28, materials.red);
+        addCube(9.8, 1.05, -8.7, 0.28, 1.8, 0.28, materials.red);
+        addCube(8.2, 2.0, -8.7, 3.9, 0.34, 0.34, materials.red);
+        addCube(8.2, 2.32, -8.7, 3.1, 0.24, 0.24, materials.red);
+        addCube(8.2, 0.74, -6.7, 1.8, 1.1, 1.4, materials.wall);
+        addCube(8.2, 1.42, -6.7, 2.2, 0.42, 1.75, materials.roof);
+        addCube(8.2, 0.44, -5.88, 0.72, 0.58, 0.14, materials.wood);
+        addBlocker("shrine", 8.2, -6.7, 1.22, 1.02);
+        addBlocker("torii-left", 6.6, -8.7, 0.36, 0.36);
+        addBlocker("torii-right", 9.8, -8.7, 0.36, 0.36);
+      }
+
+      function buildBridge() {
+        addCube(-0.1, 0.25, 7.65, 4.9, 0.28, 1.45, materials.wood);
+        for (let x = -2; x <= 2; x += 1) {
+          addCube(x, 0.62, 6.9, 0.18, 0.58, 0.18, materials.wood);
+          addCube(x, 0.62, 8.4, 0.18, 0.58, 0.18, materials.wood);
+        }
+        addCube(-0.1, 0.92, 6.9, 4.6, 0.16, 0.16, materials.wood);
+        addCube(-0.1, 0.92, 8.4, 4.6, 0.16, 0.16, materials.wood);
+        addBlocker("bridge-rail-low", -0.1, 6.9, 2.45, 0.13);
+        addBlocker("bridge-rail-high", -0.1, 8.4, 2.45, 0.13);
+      }
+
+      function buildTrees() {
+        const treeSpots = [
+          [-12, -9], [-10, -10.5], [-4, -9.8], [0, -8.5], [12, -4], [13, 0],
+          [-13, 0], [-12, 10], [-5, 10.5], [6, 10.8], [12, 10], [3.5, -5.3]
+        ];
+
+        for (const [x, z] of treeSpots) {
+          addCube(x, 0.52, z, 0.38, 1.05, 0.38, materials.wood);
+          addCube(x, 1.35, z, 1.28, 1.0, 1.28, materials.leaf);
+          addCube(x - 0.35, 1.75, z + 0.16, 0.9, 0.72, 0.9, materials.leafLight);
+          addCube(x + 0.34, 1.78, z - 0.22, 0.82, 0.68, 0.82, materials.leaf);
+          addBlocker(`tree-${x}-${z}`, x, z, 0.72, 0.72);
+        }
+      }
+
+      function buildDetails() {
+        addCube(0.5, 0.25, -1.4, 0.9, 0.28, 0.7, materials.cat);
+        addCube(0.18, 0.48, -1.72, 0.32, 0.28, 0.32, materials.cat);
+        addCube(0.93, 0.46, -1.18, 0.58, 0.13, 0.18, materials.cat);
+        addBlocker("cat", 0.5, -1.4, 0.68, 0.5);
+
+        for (const place of places) {
+          addCube(place.x, 0.1, place.z, 0.35, 0.2, 0.35, new THREE.MeshStandardMaterial({ color: place.color, roughness: 0.8 }));
+        }
+
+        for (let i = 0; i < 34; i += 1) {
+          const x = -13 + Math.random() * 26;
+          const z = -11 + Math.random() * 22;
+          if (!isRiver(x, z) && !isPath(Math.round(x), Math.round(z))) {
+            const material = i % 3 === 0 ? materials.flower : materials.leafLight;
+            addCube(x, 0.18, z, 0.12, 0.22 + Math.random() * 0.16, 0.12, material);
+          }
+        }
+      }
+
+      function buildWorld() {
+        buildGround();
+        buildRiceField();
+        buildTeaRows();
+        buildHouse();
+        buildShrine();
+        buildBridge();
+        buildTrees();
+        buildDetails();
+      }
+
+      function setupCharacterButtons() {
+        for (let i = 0; i < columns; i += 1) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.title = `${characterProfiles[i].name}: ${characterProfiles[i].role}`;
+          button.setAttribute("aria-label", `${characterProfiles[i].name}, ${characterProfiles[i].role}`);
+          if (i === state.selectedCharacter) {
+            button.classList.add("selected");
+          }
+
+          const portrait = document.createElement("span");
+          portrait.className = "portrait";
+          portrait.style.backgroundPosition = `${-i * frameW}px 0px`;
+          button.append(portrait);
+
+          button.addEventListener("click", () => {
+            startBackgroundMusic();
+            state.selectedCharacter = i;
+            for (const item of characterStrip.querySelectorAll("button")) {
+              item.classList.remove("selected");
+            }
+            button.classList.add("selected");
+            if (player) {
+              player.character = i;
+              setEntityFrame(player);
+            }
+            updateCharacterHud();
+            setMessage(`${selectedProfile().name}: ${selectedProfile().intro}`);
+          });
+
+          characterStrip.append(button);
+        }
+      }
+
+      function makeSpriteTexture(character, row) {
+        const texture = spriteBaseTexture.clone();
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.repeat.set(1 / columns, 1 / rows);
+        texture.offset.set(character / columns, 1 - (row + 1) / rows);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      function createEntity({ character, x, z, dir = "down", playerControlled = false, center = null, message = "" }) {
+        const texture = makeSpriteTexture(character, 0);
+        const material = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          alphaTest: 0.18,
+          depthWrite: false
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.center.set(0.5, 0);
+        sprite.scale.set(0.86, 1.15, 1);
+        sprite.position.set(x, 0.25, z);
+        sprite.renderOrder = 3;
+        scene.add(sprite);
+
+        const entity = {
+          sprite,
+          texture,
+          character,
+          dir,
+          moving: false,
+          baseY: 0.25,
+          jumpTime: 0,
+          jumpDuration: 0.86,
+          step: 0,
+          speed: playerControlled ? 4.2 : 1,
+          width: 0.86,
+          height: 1.15,
+          playerControlled,
+          center,
+          message,
+          phase: Math.random() * Math.PI * 2
+        };
+        entities.push(entity);
+        setEntityFrame(entity);
+        return entity;
+      }
+
+      function setEntityFrame(entity) {
+        const rowBase = entity.dir === "up" ? 6 : entity.dir === "right" || entity.dir === "left" ? 2 : 0;
+        const row = rowBase + (entity.moving && Math.sin(entity.step * 9) > 0 ? 1 : 0);
+        entity.texture.offset.set(entity.character / columns, 1 - (row + 1) / rows);
+        entity.texture.needsUpdate = true;
+        const flip = entity.dir === "left" ? -1 : 1;
+        entity.sprite.scale.set(entity.width * flip, entity.height, 1);
+      }
+
+      function loadSprites() {
+        const loader = new THREE.TextureLoader();
+        loader.load(
+          "assets/characters.png",
+          (texture) => {
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.needsUpdate = true;
+            spriteBaseTexture = texture;
+            player = createEntity({ character: state.selectedCharacter, x: -1.5, z: -0.6, playerControlled: true });
+            villagers.push(
+              createEntity({ character: 1, x: -4.2, z: -2.4, dir: "down", center: new THREE.Vector2(-4.2, -2.4), message: characterProfiles[1].greeting }),
+              createEntity({ character: 2, x: -1.7, z: -4.6, dir: "right", center: new THREE.Vector2(-1.7, -4.6), message: characterProfiles[2].greeting }),
+              createEntity({ character: 3, x: -10.8, z: 0.4, dir: "right", center: new THREE.Vector2(-10.8, 0.4), message: characterProfiles[3].greeting }),
+              createEntity({ character: 4, x: 3.3, z: -3.2, dir: "left", center: new THREE.Vector2(3.3, -3.2), message: characterProfiles[4].greeting }),
+              createEntity({ character: 5, x: 6.2, z: 0.4, dir: "down", center: new THREE.Vector2(6.2, 0.4), message: characterProfiles[5].greeting }),
+              createEntity({ character: 6, x: 10.2, z: -2.5, dir: "left", center: new THREE.Vector2(10.2, -2.5), message: characterProfiles[6].greeting }),
+              createEntity({ character: 7, x: 8.8, z: -9.2, dir: "down", center: new THREE.Vector2(8.8, -9.2), message: characterProfiles[7].greeting }),
+              createEntity({ character: 8, x: 10.3, z: 4.1, dir: "left", center: new THREE.Vector2(10.3, 4.1), message: characterProfiles[8].greeting })
+            );
+            spritesReady = true;
+            updateCharacterHud();
+            setMessage("탄지로와 친구들이 블록 마을을 산책하기 시작했어요.");
+          },
+          undefined,
+          () => {
+            setMessage("스프라이트를 불러오지 못했어요.");
+          }
+        );
+      }
+
+      function setMessage(text) {
+        messageEl.textContent = text;
+      }
+
+      backgroundMusic.loop = true;
+      backgroundMusic.preload = "auto";
+      backgroundMusic.volume = 0.34;
+      backgroundMusic.load();
+
+      function updateMusicButton() {
+        const isPlaying = !backgroundMusic.paused && !backgroundMusic.ended;
+        musicButton.classList.toggle("off", !musicState.enabled || !isPlaying);
+        musicButton.setAttribute("aria-label", isPlaying ? "배경음악 끄기" : "배경음악 켜기");
+        musicButton.title = isPlaying ? "배경음악 끄기" : "배경음악 켜기";
+        document.body.dataset.music = isPlaying ? "playing" : musicState.enabled ? "waiting" : "off";
+        document.body.dataset.musicBlocked = String(musicState.blocked);
+        document.body.dataset.musicError = musicState.error;
+        document.body.dataset.musicCanPlay = backgroundMusic.canPlayType("audio/mp4; codecs=mp4a.40.2") || backgroundMusic.canPlayType("audio/mp4") || "unknown";
+      }
+
+      function startBackgroundMusic() {
+        if (!musicState.enabled || !backgroundMusic.paused) {
+          updateMusicButton();
+          return;
+        }
+
+        backgroundMusic.play()
+          .then(() => {
+            musicState.blocked = false;
+            musicState.error = "";
+            updateMusicButton();
+          })
+          .catch((error) => {
+            musicState.blocked = true;
+            musicState.error = error && error.name ? error.name : "play-failed";
+            updateMusicButton();
+          });
+      }
+
+      function pauseBackgroundMusic() {
+        backgroundMusic.pause();
+        updateMusicButton();
+      }
+
+      function toggleBackgroundMusic() {
+        if (musicState.enabled && !backgroundMusic.paused) {
+          musicState.enabled = false;
+          pauseBackgroundMusic();
+          return;
+        }
+
+        musicState.enabled = true;
+        startBackgroundMusic();
+      }
+
+      function updateCharacterHud() {
+        heroEl.textContent = selectedProfile().name;
+      }
+
+      function updateStats() {
+        heartEl.textContent = `평온 ${state.peace}`;
+        updateCharacterHud();
+        bagEl.textContent = `바구니 ${state.basket}`;
+        if (state.peace >= 70) {
+          state.dayTime = "노을";
+        } else if (state.peace >= 38) {
+          state.dayTime = "오후";
+        } else if (state.peace >= 16) {
+          state.dayTime = "낮";
+        } else {
+          state.dayTime = "아침";
+        }
+        timeEl.textContent = state.dayTime;
+      }
+
+      function nearestPlace() {
+        if (!player) {
+          return null;
+        }
+
+        let best = null;
+        let bestDistance = Infinity;
+        for (const place of places) {
+          const distance = Math.hypot(player.sprite.position.x - place.x, player.sprite.position.z - place.z);
+          if (distance < place.radius && distance < bestDistance) {
+            best = place;
+            bestDistance = distance;
+          }
+        }
+        return best;
+      }
+
+      function nearbyVillager() {
+        if (!player) {
+          return null;
+        }
+
+        for (const villager of villagers) {
+          const distance = Math.hypot(player.sprite.position.x - villager.sprite.position.x, player.sprite.position.z - villager.sprite.position.z);
+          if (distance < 1.7) {
+            return villager;
+          }
+        }
+        return null;
+      }
+
+      function performAction() {
+        const now = Date.now();
+        if (now - lastActionAt < 380) {
+          return;
+        }
+        lastActionAt = now;
+        state.lastCommand = "action";
+
+        const villager = nearbyVillager();
+        if (villager) {
+          state.peace += 2;
+          spawnSparkles(villager.sprite.position.x, villager.sprite.position.z, 0xf3c84d, 9);
+          playChime(620, 0.08);
+          updateStats();
+          setMessage(villager.message);
+          return;
+        }
+
+        const place = nearestPlace();
+        if (!place) {
+          setMessage("네모난 흙길이 발밑에서 폭신해요.");
+          playChime(360, 0.05);
+          return;
+        }
+
+        const firstVisit = !visited.has(place.id);
+        visited.add(place.id);
+        state.peace += firstVisit ? place.peace : Math.max(2, Math.floor(place.peace / 2));
+        state.basket += place.basket;
+        spawnSparkles(place.x, place.z, firstVisit ? place.color : 0x79c86b, 14);
+        playChime(firstVisit ? 720 : 540, firstVisit ? 0.11 : 0.08);
+        updateStats();
+
+        if (state.peace >= 70) {
+          setMessage("해질녘 빛이 블록 마을을 주황색으로 감싸요.");
+        } else {
+          setMessage(`${place.name}: ${place.message}`);
+        }
+      }
+
+      function startJump() {
+        const now = Date.now();
+        if (!player || player.jumpTime > 0 || now - lastJumpAt < 900) {
+          return;
+        }
+        lastJumpAt = now;
+        player.jumpTime = player.jumpDuration;
+        player.step += 0.08;
+        state.jumpCount += 1;
+        state.lastCommand = "jump";
+        playChime(480, 0.045);
+      }
+
+      function spawnSparkles(x, z, color, count) {
+        for (let i = 0; i < count; i += 1) {
+          const material = new THREE.MeshBasicMaterial({ color });
+          const mesh = new THREE.Mesh(sparkleGeo, material);
+          mesh.position.set(x, 0.75 + Math.random() * 0.5, z);
+          mesh.castShadow = false;
+          scene.add(mesh);
+          sparkles.push({
+            mesh,
+            vx: (Math.random() - 0.5) * 1.6,
+            vy: 1.8 + Math.random() * 1.2,
+            vz: (Math.random() - 0.5) * 1.6,
+            life: 0.8 + Math.random() * 0.5
+          });
+        }
+      }
+
+      function playChime(frequency, volume) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) {
+          return;
+        }
+        const audio = new AudioContext();
+        const now = audio.currentTime;
+        for (let i = 0; i < 3; i += 1) {
+          const osc = audio.createOscillator();
+          const gain = audio.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(frequency * (1 + i * 0.25), now + i * 0.045);
+          gain.gain.setValueAtTime(0.0001, now + i * 0.045);
+          gain.gain.exponentialRampToValueAtTime(volume / (i + 1), now + i * 0.045 + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.045 + 0.42);
+          osc.connect(gain).connect(audio.destination);
+          osc.start(now + i * 0.045);
+          osc.stop(now + i * 0.52);
+        }
+        window.setTimeout(() => audio.close(), 700);
+      }
+
+      function setDirectionFromDelta(entity, dx, dz) {
+        if (Math.abs(dx) > Math.abs(dz)) {
+          entity.dir = dx < 0 ? "left" : "right";
+        } else if (Math.abs(dz) > 0.001) {
+          entity.dir = dz < 0 ? "up" : "down";
+        }
+      }
+
+      function clampPlayerPosition() {
+        player.sprite.position.x = Math.max(-13.5, Math.min(13.5, player.sprite.position.x));
+        player.sprite.position.z = Math.max(-11.5, Math.min(11.5, player.sprite.position.z));
+      }
+
+      function movePlayer(dx, dz, delta) {
+        const position = player.sprite.position;
+        const nextX = Math.max(-13.5, Math.min(13.5, position.x + dx * player.speed * delta));
+        const nextZ = Math.max(-11.5, Math.min(11.5, position.z + dz * player.speed * delta));
+        let blocked = false;
+
+        if (!isBlockedPosition(nextX, position.z)) {
+          position.x = nextX;
+        } else {
+          blocked = true;
+        }
+
+        if (!isBlockedPosition(position.x, nextZ)) {
+          position.z = nextZ;
+        } else {
+          blocked = true;
+        }
+
+        if (blocked && state.tapTarget) {
+          state.tapTarget = null;
+        }
+      }
+
+      function updatePlayerJump(delta) {
+        if (!player) {
+          return;
+        }
+
+        if (player.jumpTime > 0) {
+          player.jumpTime = Math.max(0, player.jumpTime - delta);
+          const progress = 1 - player.jumpTime / player.jumpDuration;
+          player.sprite.position.y = player.baseY + Math.sin(progress * Math.PI) * 1.05;
+        } else {
+          player.sprite.position.y = player.baseY;
+        }
+      }
+
+      function updatePlayer(delta) {
+        if (!player) {
+          return;
+        }
+
+        const left = keys.has("left") || touchMoves.has("left");
+        const right = keys.has("right") || touchMoves.has("right");
+        const up = keys.has("up") || touchMoves.has("up");
+        const down = keys.has("down") || touchMoves.has("down");
+        let dx = (right ? 1 : 0) - (left ? 1 : 0);
+        let dz = (down ? 1 : 0) - (up ? 1 : 0);
+
+        if (dx !== 0 || dz !== 0) {
+          state.tapTarget = null;
+        } else if (state.tapTarget) {
+          dx = state.tapTarget.x - player.sprite.position.x;
+          dz = state.tapTarget.z - player.sprite.position.z;
+          const distance = Math.hypot(dx, dz);
+          if (distance < 0.2) {
+            state.tapTarget = null;
+            dx = 0;
+            dz = 0;
+          } else {
+            dx /= distance;
+            dz /= distance;
+          }
+        }
+
+        const length = Math.hypot(dx, dz);
+        player.moving = length > 0.001;
+        if (player.moving) {
+          dx /= length;
+          dz /= length;
+          movePlayer(dx, dz, delta);
+          player.step += delta;
+          setDirectionFromDelta(player, dx, dz);
+          clampPlayerPosition();
+        }
+        updatePlayerJump(delta);
+        setEntityFrame(player);
+      }
+
+      function updateVillagers(delta, elapsed) {
+        for (let i = 0; i < villagers.length; i += 1) {
+          const villager = villagers[i];
+          const radiusX = 1.1 + i * 0.25;
+          const radiusZ = 0.8 + (i % 2) * 0.35;
+          const speed = 0.45 + i * 0.06;
+          const nextX = villager.center.x + Math.cos(elapsed * speed + villager.phase) * radiusX;
+          const nextZ = villager.center.y + Math.sin(elapsed * speed + villager.phase) * radiusZ;
+          const dx = nextX - villager.sprite.position.x;
+          const dz = nextZ - villager.sprite.position.z;
+          villager.sprite.position.x = nextX;
+          villager.sprite.position.z = nextZ;
+          villager.moving = Math.hypot(dx, dz) > 0.002;
+          villager.step += delta * 0.8;
+          setDirectionFromDelta(villager, dx, dz);
+          setEntityFrame(villager);
+        }
+      }
+
+      function updateSparkles(delta) {
+        for (let i = sparkles.length - 1; i >= 0; i -= 1) {
+          const sparkle = sparkles[i];
+          sparkle.life -= delta;
+          sparkle.vy -= 3.2 * delta;
+          sparkle.mesh.position.x += sparkle.vx * delta;
+          sparkle.mesh.position.y += sparkle.vy * delta;
+          sparkle.mesh.position.z += sparkle.vz * delta;
+          sparkle.mesh.rotation.x += delta * 5;
+          sparkle.mesh.rotation.y += delta * 7;
+          sparkle.mesh.scale.setScalar(Math.max(0.1, sparkle.life));
+          if (sparkle.life <= 0) {
+            scene.remove(sparkle.mesh);
+            sparkle.mesh.material.dispose();
+            sparkles.splice(i, 1);
+          }
+        }
+      }
+
+      function updateActionLabel() {
+        const villager = nearbyVillager();
+        const place = nearestPlace();
+        actionButton.textContent = villager ? "인사하기" : place ? place.action : "살펴보기";
+      }
+
+      function updateCamera(delta) {
+        if (!player) {
+          camera.lookAt(0, 0.6, 0);
+          return;
+        }
+
+        const target = player.sprite.position;
+        const wanted = new THREE.Vector3(target.x + 6.8, 7.4, target.z + 8.1);
+        const t = 1 - Math.pow(0.001, delta);
+        camera.position.lerp(wanted, t);
+        camera.lookAt(target.x, 0.45, target.z);
+      }
+
+      function updateSky() {
+        const color = state.dayTime === "노을" ? 0xf6c38c : state.dayTime === "오후" ? 0xadd7f1 : 0xbfe4f4;
+        scene.background.setHex(color);
+        scene.fog.color.setHex(color);
+        renderer.setClearColor(color, 1);
+      }
+
+      function collisionSnapshot() {
+        return {
+          blockerCount: collisionBoxes.length,
+          riceFieldPassable: !isBlockedPosition(-8.5, 5),
+          teaFieldPassable: !isBlockedPosition(8.8, 4.5),
+          houseBlocked: isBlockedPosition(-8.2, -6.7),
+          shrineBlocked: isBlockedPosition(8.2, -6.7),
+          treeBlocked: isBlockedPosition(-12, -9),
+          catBlocked: isBlockedPosition(0.5, -1.4),
+          riverBlocked: isBlockedPosition(5.5, 8.2),
+          bridgePassable: !isBlockedPosition(0, 7.65)
+        };
+      }
+
+      function updateDebugState() {
+        document.body.dataset.ready = String(spritesReady && renderer.info.render.frame > 4);
+        document.body.dataset.sprites = String(entities.length);
+        document.body.dataset.renderCalls = String(renderer.info.render.calls);
+        document.body.dataset.jumpCount = String(state.jumpCount);
+        document.body.dataset.lastCommand = state.lastCommand;
+        updateMusicButton();
+        const collision = collisionSnapshot();
+        document.body.dataset.blockers = String(collision.blockerCount);
+        document.body.dataset.riceFieldPassable = String(collision.riceFieldPassable);
+        document.body.dataset.teaFieldPassable = String(collision.teaFieldPassable);
+        document.body.dataset.houseBlocked = String(collision.houseBlocked);
+        document.body.dataset.shrineBlocked = String(collision.shrineBlocked);
+        document.body.dataset.treeBlocked = String(collision.treeBlocked);
+        document.body.dataset.catBlocked = String(collision.catBlocked);
+        document.body.dataset.riverBlocked = String(collision.riverBlocked);
+        document.body.dataset.bridgePassable = String(collision.bridgePassable);
+        if (player) {
+          document.body.dataset.playerX = player.sprite.position.x.toFixed(2);
+          document.body.dataset.playerY = player.sprite.position.y.toFixed(2);
+          document.body.dataset.playerZ = player.sprite.position.z.toFixed(2);
+          document.body.dataset.jumping = String(player.jumpTime > 0);
+        }
+      }
+
+      function resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height, false);
+      }
+
+      function handlePointerTarget(event) {
+        const rect = canvas.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+        raycaster.setFromCamera(pointer, camera);
+        const target = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(groundPlane, target)) {
+          state.tapTarget = {
+            x: Math.max(-13.5, Math.min(13.5, target.x)),
+            z: Math.max(-11.5, Math.min(11.5, target.z))
+          };
+        }
+      }
+
+      function animate() {
+        const delta = Math.min(clock.getDelta(), 0.04);
+        const elapsed = clock.elapsedTime;
+        updatePlayer(delta);
+        updateVillagers(delta, elapsed);
+        updateSparkles(delta);
+        updateActionLabel();
+        updateSky();
+        updateCamera(delta);
+        renderer.render(scene, camera);
+        updateDebugState();
+        requestAnimationFrame(animate);
+      }
+
+      function bindInput() {
+        const keyMap = {
+          ArrowLeft: "left",
+          ArrowRight: "right",
+          ArrowUp: "up",
+          ArrowDown: "down",
+          KeyA: "left",
+          KeyD: "right",
+          KeyW: "up",
+          KeyS: "down",
+          a: "left",
+          d: "right",
+          w: "up",
+          s: "down",
+          ㅁ: "left",
+          ㅇ: "right",
+          ㅈ: "up",
+          ㄴ: "down"
+        };
+
+        function commandKey(event) {
+          if (event.code === "Enter" || event.key === "Enter") {
+            return "action";
+          }
+          if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
+            return "jump";
+          }
+          return "";
+        }
+
+        function handleCommandKey(event) {
+          const command = commandKey(event);
+          if (!command) {
+            return false;
+          }
+          if (event.repeat) {
+            event.preventDefault();
+            return true;
+          }
+          if (command === "action") {
+            performAction();
+          } else {
+            startJump();
+          }
+          event.preventDefault();
+          return true;
+        }
+
+        window.addEventListener("keydown", (event) => {
+          startBackgroundMusic();
+
+          if (handleCommandKey(event)) {
+            return;
+          }
+
+          const move = keyMap[event.code] || keyMap[event.key];
+          if (move) {
+            keys.add(move);
+            event.preventDefault();
+          }
+        }, { capture: true });
+
+        window.addEventListener("keypress", (event) => {
+          handleCommandKey(event);
+        }, { capture: true });
+
+        window.addEventListener("keyup", (event) => {
+          if (commandKey(event)) {
+            event.preventDefault();
+            return;
+          }
+
+          const move = keyMap[event.code] || keyMap[event.key];
+          if (move) {
+            keys.delete(move);
+            event.preventDefault();
+          }
+        }, { capture: true });
+
+        for (const button of document.querySelectorAll("[data-move]")) {
+          const move = button.dataset.move;
+          button.addEventListener("pointerdown", (event) => {
+            startBackgroundMusic();
+            touchMoves.add(move);
+            button.setPointerCapture(event.pointerId);
+            event.preventDefault();
+          });
+          button.addEventListener("pointerup", (event) => {
+            touchMoves.delete(move);
+            event.preventDefault();
+          });
+          button.addEventListener("pointercancel", () => {
+            touchMoves.delete(move);
+          });
+          button.addEventListener("pointerleave", () => {
+            touchMoves.delete(move);
+          });
+        }
+
+        musicButton.addEventListener("pointerdown", (event) => {
+          event.stopPropagation();
+        });
+        musicButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleBackgroundMusic();
+        });
+        actionButton.addEventListener("click", () => {
+          startBackgroundMusic();
+          performAction();
+        });
+        actionButton.addEventListener("keydown", (event) => {
+          if (handleCommandKey(event)) {
+            event.stopPropagation();
+          }
+        }, { capture: true });
+        actionButton.addEventListener("keypress", (event) => {
+          if (handleCommandKey(event)) {
+            event.stopPropagation();
+          }
+        }, { capture: true });
+        actionButton.addEventListener("keyup", (event) => {
+          if (commandKey(event)) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, { capture: true });
+        canvas.addEventListener("pointerdown", (event) => {
+          canvas.focus({ preventScroll: true });
+          startBackgroundMusic();
+          handlePointerTarget(event);
+        });
+        backgroundMusic.addEventListener("playing", updateMusicButton);
+        backgroundMusic.addEventListener("pause", updateMusicButton);
+        backgroundMusic.addEventListener("ended", updateMusicButton);
+        backgroundMusic.addEventListener("error", updateMusicButton);
+        window.addEventListener("resize", resize);
+      }
+
+      buildWorld();
+      setupCharacterButtons();
+      bindInput();
+      resize();
+      loadSprites();
+      updateStats();
+      canvas.focus({ preventScroll: true });
+      animate();
+
+      window.__countryHealing = {
+        get ready() {
+          return spritesReady && renderer.info.render.frame > 4;
+        },
+        get spriteCount() {
+          return entities.length;
+        },
+        get playerPosition() {
+          if (!player) {
+            return null;
+          }
+          return {
+            x: Number(player.sprite.position.x.toFixed(2)),
+            z: Number(player.sprite.position.z.toFixed(2))
+          };
+        },
+        get renderInfo() {
+          return {
+            calls: renderer.info.render.calls,
+            triangles: renderer.info.render.triangles
+          };
+        },
+        get collisionDebug() {
+          return collisionSnapshot();
+        },
+        nudgeRight() {
+          keys.add("right");
+          window.setTimeout(() => keys.delete("right"), 260);
+        }
+      };
+      } catch (error) {
+        window.__countryBoot.errors.push(error && error.message ? error.message : String(error));
+        const message = document.querySelector("#message");
+        if (message) {
+          message.textContent = "3D 월드를 여는 중 문제가 생겼어요.";
+        }
+        throw error;
+      }
+    </script>
+  </body>
+</html>

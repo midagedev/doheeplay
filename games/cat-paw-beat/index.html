@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>고양이 발바닥 리듬</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #202432;
+        --muted: #5f6875;
+        --cream: #fff8e8;
+        --paper: #fffdf7;
+        --sky: #cdefff;
+        --mint: #bdebd3;
+        --rose: #f4a0b7;
+        --sun: #f8c537;
+        --blue: #176b87;
+        --green: #2f7d5d;
+        --shadow: 0 18px 42px rgb(32 36 50 / 16%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 14px;
+        overflow-x: hidden;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgb(248 197 55 / 16%) 0 22px, transparent 22px 44px),
+          linear-gradient(180deg, #fff8e8 0%, #e8fbf4 52%, #dff3ff 100%);
+      }
+
+      main {
+        width: min(860px, 100%);
+        display: grid;
+        gap: 12px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 3.2rem;
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(70px, 1fr));
+        gap: 8px;
+        min-width: 340px;
+      }
+
+      .stat {
+        min-height: 48px;
+        display: grid;
+        place-items: center;
+        border: 3px solid var(--ink);
+        border-radius: 8px;
+        background: var(--paper);
+        font-weight: 900;
+        box-shadow: 0 8px 0 rgb(32 36 50 / 8%);
+      }
+
+      .stage {
+        position: relative;
+        border: 4px solid var(--ink);
+        border-radius: 8px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        touch-action: none;
+        background: linear-gradient(180deg, #fef4d8 0%, #d9f6ff 48%, #fefcf5 100%);
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 22px;
+        background: rgb(255 253 247 / 86%);
+      }
+
+      .overlay[hidden] {
+        display: none;
+      }
+
+      .panel {
+        width: min(440px, 100%);
+        display: grid;
+        gap: 14px;
+        text-align: center;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 2.25rem;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .panel p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      button {
+        min-height: 48px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 18px;
+        background: var(--ink);
+        color: white;
+        font: inherit;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      button:focus-visible {
+        outline: 4px solid var(--sun);
+        outline-offset: 3px;
+      }
+
+      .lane-controls {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .lane-controls button {
+        min-height: 58px;
+        border: 3px solid var(--ink);
+        color: var(--ink);
+        box-shadow: 0 7px 0 rgb(32 36 50 / 12%);
+      }
+
+      .lane-controls button:nth-child(1) {
+        background: var(--sky);
+      }
+
+      .lane-controls button:nth-child(2) {
+        background: var(--mint);
+      }
+
+      .lane-controls button:nth-child(3) {
+        background: #ffe19f;
+      }
+
+      .lane-controls button:nth-child(4) {
+        background: var(--rose);
+      }
+
+      .lane-controls button.active {
+        transform: translateY(4px);
+        box-shadow: 0 3px 0 rgb(32 36 50 / 12%);
+      }
+
+      @media (max-width: 680px) {
+        body {
+          padding: 10px;
+          align-items: start;
+        }
+
+        header {
+          grid-template-columns: 1fr;
+          align-items: start;
+        }
+
+        h1 {
+          font-size: 2.35rem;
+        }
+
+        .stats {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .stat {
+          min-height: 42px;
+          font-size: 0.9rem;
+        }
+
+        .lane-controls {
+          gap: 7px;
+        }
+
+        .lane-controls button {
+          min-height: 54px;
+          padding: 0 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>고양이 발바닥 리듬</h1>
+          <p class="subtitle">발바닥이 반짝 줄에 닿을 때 아래 버튼을 톡톡 눌러요.</p>
+        </div>
+        <section class="stats" aria-live="polite">
+          <div class="stat" id="score">점수 0</div>
+          <div class="stat" id="combo">콤보 0</div>
+          <div class="stat" id="mistakes">실수 0/2</div>
+          <div class="stat" id="grade">Ready</div>
+        </section>
+      </header>
+
+      <section class="stage" aria-label="Rhythm game stage">
+        <canvas id="game" width="800" height="600"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="panel">
+            <h2 id="overlayTitle">시작해볼까?</h2>
+            <p id="overlayText">노래가 나오면 파란 줄, 초록 줄, 노란 줄, 분홍 줄에 내려오는 발바닥을 맞춰 눌러요.</p>
+            <button type="button" id="startButton">Start</button>
+          </div>
+        </div>
+      </section>
+
+      <nav class="lane-controls" aria-label="Touch lanes">
+        <button type="button" data-lane="0">파랑<br>Q</button>
+        <button type="button" data-lane="1">초록<br>W</button>
+        <button type="button" data-lane="2">노랑<br>E</button>
+        <button type="button" data-lane="3">분홍<br>R</button>
+      </nav>
+    </main>
+
+    <script>
+      const canvas = document.querySelector("#game");
+      const ctx = canvas.getContext("2d");
+      const scoreEl = document.querySelector("#score");
+      const comboEl = document.querySelector("#combo");
+      const mistakesEl = document.querySelector("#mistakes");
+      const gradeEl = document.querySelector("#grade");
+      const overlay = document.querySelector("#overlay");
+      const overlayTitle = document.querySelector("#overlayTitle");
+      const overlayText = document.querySelector("#overlayText");
+      const startButton = document.querySelector("#startButton");
+      const laneButtons = [...document.querySelectorAll("[data-lane]")];
+
+      const laneColors = ["#cdefff", "#bdebd3", "#ffe19f", "#f4a0b7"];
+      const laneAccent = ["#176b87", "#2f7d5d", "#a96900", "#a33f59"];
+      const keys = new Map([
+        ["q", 0],
+        ["w", 1],
+        ["e", 2],
+        ["r", 3],
+        ["ㅂ", 0],
+        ["ㅃ", 0],
+        ["ㅈ", 1],
+        ["ㅉ", 1],
+        ["ㄷ", 2],
+        ["ㄸ", 2],
+        ["ㄱ", 3],
+        ["ㄲ", 3]
+      ]);
+      const keyCodes = new Map([
+        ["KeyQ", 0],
+        ["KeyW", 1],
+        ["KeyE", 2],
+        ["KeyR", 3]
+      ]);
+
+      const melody = [392, 440, 523.25, 440, 349.23, 392, 493.88, 392];
+      const lanesPattern = [0, 1, 2, 3, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1];
+      const beatMs = 560;
+      const startDelayMs = 3000;
+      const travelMs = 1650;
+      const firstNoteMs = travelMs;
+      const perfectMs = 140;
+      const goodMs = 320;
+      const closeMs = 900;
+      const missMs = 960;
+      const allowedMistakes = 2;
+      const mistakeLimit = 3;
+      const totalBeats = 56;
+
+      let audioContext = null;
+      let activeAudioNodes = [];
+      let notes = [];
+      let startTime = 0;
+      let animationFrame = 0;
+
+      const state = {
+        running: false,
+        score: 0,
+        combo: 0,
+        bestCombo: 0,
+        hits: 0,
+        misses: 0,
+        mistakes: 0,
+        feedback: "",
+        feedbackUntil: 0,
+        laneFlash: [0, 0, 0, 0],
+        finished: false
+      };
+
+      function buildNotes() {
+        notes = [];
+        for (let i = 0; i < totalBeats; i += 1) {
+          const lane = lanesPattern[i % lanesPattern.length];
+          notes.push({
+            lane,
+            time: firstNoteMs + i * beatMs,
+            hit: false,
+            forgiven: false,
+            missed: false
+          });
+
+          if (i % 8 === 7) {
+            notes.push({
+              lane: (lane + 2) % 4,
+              time: firstNoteMs + i * beatMs + beatMs / 2,
+              hit: false,
+              forgiven: false,
+              missed: false
+            });
+          }
+        }
+      }
+
+      function ensureAudio() {
+        if (!audioContext) {
+          audioContext = new AudioContext();
+        }
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      }
+
+      function playTone(frequency, when, duration, type, volume) {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        trackAudioNode(osc);
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, when);
+        gain.gain.setValueAtTime(0.0001, when);
+        gain.gain.exponentialRampToValueAtTime(volume, when + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+        osc.connect(gain).connect(audioContext.destination);
+        osc.start(when);
+        osc.stop(when + duration + 0.03);
+      }
+
+      function trackAudioNode(node) {
+        activeAudioNodes.push(node);
+        node.addEventListener("ended", () => {
+          activeAudioNodes = activeAudioNodes.filter((item) => item !== node);
+        });
+      }
+
+      function stopAllSounds() {
+        for (const node of activeAudioNodes) {
+          try {
+            node.stop();
+          } catch {
+            // Already stopped nodes are harmless.
+          }
+        }
+        activeAudioNodes = [];
+      }
+
+      function playTapSound(lane, strong) {
+        if (!audioContext) {
+          return;
+        }
+        const now = audioContext.currentTime;
+        const duration = 0.2;
+        const base = 520 + lane * 36;
+        const main = audioContext.createOscillator();
+        const sparkle = audioContext.createOscillator();
+        const filter = audioContext.createBiquadFilter();
+        const gain = audioContext.createGain();
+
+        main.type = "sawtooth";
+        sparkle.type = "triangle";
+        trackAudioNode(main);
+        trackAudioNode(sparkle);
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1120 + lane * 80, now);
+        filter.frequency.exponentialRampToValueAtTime(1680 + lane * 70, now + 0.07);
+        filter.frequency.exponentialRampToValueAtTime(920 + lane * 55, now + duration);
+        filter.Q.setValueAtTime(7, now);
+
+        main.frequency.setValueAtTime(base * 1.25, now);
+        main.frequency.exponentialRampToValueAtTime(base * 1.92, now + 0.065);
+        main.frequency.exponentialRampToValueAtTime(base * 0.78, now + duration);
+        sparkle.frequency.setValueAtTime(base * 2.3, now + 0.018);
+        sparkle.frequency.exponentialRampToValueAtTime(base * 1.25, now + duration);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(strong ? 0.075 : 0.055, now + 0.018);
+        gain.gain.setValueAtTime(strong ? 0.065 : 0.045, now + 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        main.connect(filter);
+        sparkle.connect(filter);
+        filter.connect(gain).connect(audioContext.destination);
+        main.start(now);
+        sparkle.start(now + 0.012);
+        main.stop(now + duration + 0.03);
+        sparkle.stop(now + duration + 0.03);
+        playTone(900 + lane * 45, now + 0.04, 0.055, "sine", strong ? 0.036 : 0.025);
+      }
+
+      function scheduleSong() {
+        const base = audioContext.currentTime + startDelayMs / 1000;
+        for (let i = 0; i < totalBeats + 4; i += 1) {
+          const when = base + (firstNoteMs + i * beatMs) / 1000;
+          const frequency = melody[i % melody.length];
+          playTone(frequency, when, 0.18, "sine", 0.08);
+          if (i % 4 === 0) {
+            playTone(196, when, 0.12, "triangle", 0.05);
+          }
+        }
+      }
+
+      function startGame() {
+        ensureAudio();
+        stopAllSounds();
+        buildNotes();
+        state.running = true;
+        state.score = 0;
+        state.combo = 0;
+        state.bestCombo = 0;
+        state.hits = 0;
+        state.misses = 0;
+        state.mistakes = 0;
+        state.feedback = "준비";
+        state.feedbackUntil = 0;
+        state.finished = false;
+        state.laneFlash = [0, 0, 0, 0];
+        overlay.hidden = true;
+        startTime = performance.now() + startDelayMs;
+        updateHud();
+        scheduleSong();
+        cancelAnimationFrame(animationFrame);
+        animationFrame = requestAnimationFrame(loop);
+      }
+
+      function currentSongTime(now = performance.now()) {
+        return now - startTime;
+      }
+
+      function updateHud() {
+        scoreEl.textContent = `점수 ${state.score}`;
+        comboEl.textContent = `콤보 ${state.combo}`;
+        mistakesEl.textContent = state.mistakes >= mistakeLimit
+          ? "처음부터"
+          : `실수 ${Math.min(state.mistakes, allowedMistakes)}/${allowedMistakes}`;
+        gradeEl.textContent = state.feedback || "Ready";
+      }
+
+      function showFeedback(text, songTime) {
+        state.feedback = text;
+        state.feedbackUntil = songTime + 520;
+        updateHud();
+      }
+
+      function hitLane(lane) {
+        ensureAudio();
+        playTapSound(lane, false);
+
+        if (!state.running) {
+          return;
+        }
+
+        const songTime = currentSongTime();
+        let best = null;
+        let bestDelta = Infinity;
+
+        for (const note of notes) {
+          if (note.lane !== lane || note.hit || note.forgiven || note.missed) {
+            continue;
+          }
+          const delta = Math.abs(note.time - songTime);
+          if (delta < bestDelta) {
+            best = note;
+            bestDelta = delta;
+          }
+        }
+
+        state.laneFlash[lane] = songTime + 160;
+        flashButton(lane);
+
+        if (!best || bestDelta > closeMs) {
+          showFeedback("괜찮아!", songTime);
+          return;
+        }
+
+        if (bestDelta > goodMs) {
+          best.forgiven = true;
+          showFeedback("거의!", songTime);
+          return;
+        }
+
+        best.hit = true;
+        state.hits += 1;
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        const perfect = bestDelta <= perfectMs;
+        const gained = perfect ? 120 : 70;
+        state.score += gained + Math.min(state.combo * 3, 90);
+        showFeedback(perfect ? "반짝!" : "좋아!", songTime);
+      }
+
+      function flashButton(lane) {
+        const button = laneButtons[lane];
+        button.classList.add("active");
+        window.setTimeout(() => button.classList.remove("active"), 120);
+      }
+
+      function updateMisses(songTime) {
+        for (const note of notes) {
+          if (!note.hit && !note.forgiven && !note.missed && songTime - note.time > missMs) {
+            note.missed = true;
+            registerMistake("놓쳤어", songTime);
+          }
+        }
+      }
+
+      function registerMistake(reason, songTime) {
+        if (!state.running) {
+          return;
+        }
+        state.combo = 0;
+        state.misses += 1;
+        state.mistakes += 1;
+
+        if (state.mistakes >= mistakeLimit) {
+          failGame(reason, songTime);
+          return;
+        }
+
+        showFeedback(`${reason} ${state.mistakes}/${allowedMistakes}`, songTime);
+      }
+
+      function failGame(reason, songTime) {
+        state.finished = true;
+        state.running = false;
+        stopAllSounds();
+        cancelAnimationFrame(animationFrame);
+        showFeedback("처음부터!", songTime);
+        draw(songTime);
+        const cleanReason = reason.replace(/[.!?]+$/u, "");
+        overlayTitle.textContent = "처음부터!";
+        overlayText.textContent = `${cleanReason} 때문에 실수가 세 번이 되었어. 두 번까지는 봐줄게.`;
+        startButton.textContent = "처음부터";
+        overlay.hidden = false;
+      }
+
+      function maybeFinish(songTime) {
+        const lastTime = notes.length ? notes[notes.length - 1].time : 0;
+        if (!state.finished && songTime > lastTime + 1400) {
+          state.finished = true;
+          state.running = false;
+          const total = notes.length;
+          const accuracy = total ? Math.round((state.hits / total) * 100) : 0;
+          overlayTitle.textContent = accuracy >= 80 ? "멋진 연주!" : "한 번 더 해보자!";
+          overlayText.textContent = `점수 ${state.score}점, 최고 콤보 ${state.bestCombo}, 정확도 ${accuracy}%`;
+          startButton.textContent = "Restart";
+          overlay.hidden = false;
+        }
+      }
+
+      function drawPaw(x, y, size, color, outline, alpha) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = Math.max(3, size * 0.08);
+
+        for (const toe of [
+          [-0.34, -0.26, 0.16],
+          [-0.11, -0.38, 0.15],
+          [0.12, -0.38, 0.15],
+          [0.35, -0.26, 0.16]
+        ]) {
+          ctx.beginPath();
+          ctx.ellipse(toe[0] * size, toe[1] * size, toe[2] * size, toe[2] * size * 1.18, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0.12 * size, 0.34 * size, 0.27 * size, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function roundRect(x, y, width, height, radius, fill, stroke) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r);
+        ctx.arcTo(x, y + height, x, y, r);
+        ctx.arcTo(x, y, x + width, y, r);
+        ctx.closePath();
+        if (fill) {
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.stroke();
+        }
+      }
+
+      function draw(songTime) {
+        const width = canvas.width;
+        const height = canvas.height;
+        const laneW = width / 4;
+        const targetY = height - 118;
+
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = "#fffdf7";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "#f8c537";
+        ctx.globalAlpha = 0.16;
+        for (let i = 0; i < 12; i += 1) {
+          ctx.beginPath();
+          ctx.arc((i * 91 + songTime * 0.03) % (width + 80) - 40, 42 + (i % 4) * 54, 12 + (i % 3) * 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (let lane = 0; lane < 4; lane += 1) {
+          const x = lane * laneW;
+          ctx.fillStyle = laneColors[lane];
+          ctx.globalAlpha = 0.54;
+          ctx.fillRect(x, 0, laneW, height);
+          ctx.globalAlpha = 1;
+
+          ctx.strokeStyle = "#202432";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+
+          if (state.laneFlash[lane] > songTime) {
+            ctx.fillStyle = "#ffffff";
+            ctx.globalAlpha = 0.48;
+            ctx.fillRect(x + 4, 0, laneW - 8, height);
+            ctx.globalAlpha = 1;
+          }
+
+          ctx.fillStyle = laneAccent[lane];
+          ctx.font = "900 26px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(["Q", "W", "E", "R"][lane], x + laneW / 2, height - 34);
+        }
+
+        ctx.fillStyle = "rgb(255 255 255 / 78%)";
+        roundRect(22, targetY - 24, width - 44, 48, 18, true, false);
+        ctx.strokeStyle = "#202432";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(34, targetY);
+        ctx.lineTo(width - 34, targetY);
+        ctx.stroke();
+
+        if (state.running && songTime < 0) {
+          const count = Math.max(1, Math.ceil(Math.abs(songTime) / 1000));
+          ctx.fillStyle = "#202432";
+          ctx.font = "900 30px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("준비", width / 2, 70);
+          ctx.font = "900 92px system-ui, sans-serif";
+          ctx.fillText(String(count), width / 2, 168);
+          return;
+        }
+
+        for (const note of notes) {
+          if (note.hit || note.forgiven) {
+            continue;
+          }
+
+          const progress = 1 - (note.time - songTime) / travelMs;
+          if (progress < -0.08 || progress > 1.18) {
+            continue;
+          }
+
+          const laneX = note.lane * laneW + laneW / 2;
+          const y = -54 + progress * (targetY + 54);
+          const alpha = note.missed ? 0.22 : 1;
+          const size = note.missed ? 54 : 64;
+          drawPaw(laneX, y, size, "#ffffff", laneAccent[note.lane], alpha);
+        }
+
+        if (state.feedback && songTime < state.feedbackUntil) {
+          ctx.fillStyle = "#202432";
+          ctx.font = "900 42px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(state.feedback, width / 2, 74);
+        }
+      }
+
+      function loop(now) {
+        const songTime = currentSongTime(now);
+        updateMisses(songTime);
+        if (state.feedback && songTime > state.feedbackUntil) {
+          state.feedback = "";
+          updateHud();
+        }
+        draw(songTime);
+        maybeFinish(songTime);
+        if (state.running) {
+          animationFrame = requestAnimationFrame(loop);
+        }
+      }
+
+      function laneFromPoint(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.max(0, Math.min(rect.width - 1, clientX - rect.left));
+        return Math.floor((x / rect.width) * 4);
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        hitLane(laneFromPoint(event.clientX));
+      });
+
+      laneButtons.forEach((button) => {
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          hitLane(Number(button.dataset.lane));
+        });
+      });
+
+      window.addEventListener("keydown", (event) => {
+        const lane = laneFromKeyEvent(event);
+        if (lane !== undefined) {
+          event.preventDefault();
+          hitLane(lane);
+          return;
+        }
+        if ((event.key === " " || event.key === "Enter") && !state.running) {
+          event.preventDefault();
+          startGame();
+          return;
+        }
+        if (state.running && isWrongGameKey(event)) {
+          event.preventDefault();
+          registerMistake("다른 키!", currentSongTime());
+        }
+      });
+
+      function laneFromKeyEvent(event) {
+        const laneFromCode = keyCodes.get(event.code);
+        if (laneFromCode !== undefined) {
+          return laneFromCode;
+        }
+        return keys.get(String(event.key).toLowerCase());
+      }
+
+      function isWrongGameKey(event) {
+        if (event.repeat || event.isComposing || event.key === "Process") {
+          return false;
+        }
+        if (laneFromKeyEvent(event) !== undefined) {
+          return false;
+        }
+        return !["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab", "Escape"].includes(event.key);
+      }
+
+      startButton.addEventListener("click", startGame);
+      buildNotes();
+      updateHud();
+      draw(-400);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "title": "블록 마을 산책",
+  "description": "탄지로와 친구들이 마인크래프트풍 블록 마을에서 논, 찻밭, 작은 신사, 강가를 천천히 걷는 힐링 게임.",
+  "createdAt": "2026-06-28",
+  "tags": ["healing", "voxel", "walking"],
+  "controls": ["Arrow keys", "W A S D", "Enter", "Space jump", "Touch buttons"]
+}
