@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>쿠키 가게 클릭</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #2a2018;
+        --muted: #6e5b4f;
+        --paper: #fffaf0;
+        --line: #e6c89e;
+        --cookie: #cc8140;
+        --cookie-dark: #7a4329;
+        --cream: #fff0c8;
+        --mint: #bfe7cf;
+        --sky: #b9d8f1;
+        --rose: #f6a6a6;
+        --gold: #f6c856;
+        --shadow: rgba(75, 45, 22, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 18% 18%, rgba(255, 239, 194, 0.9), transparent 28rem),
+          linear-gradient(135deg, #f9e6c9 0%, #f6d5ba 42%, #cae5dd 100%);
+        color: var(--ink);
+        font-family: ui-rounded, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        overflow-x: hidden;
+        user-select: none;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      button:focus-visible {
+        outline: 3px solid #2f79c9;
+        outline-offset: 3px;
+      }
+
+      .game {
+        min-height: 100dvh;
+        display: grid;
+        grid-template-columns: minmax(20rem, 1fr) minmax(18rem, 23rem);
+        gap: clamp(1rem, 3vw, 2.25rem);
+        align-items: stretch;
+        padding: clamp(1rem, 3vw, 2rem);
+      }
+
+      .bakery {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        min-height: calc(100dvh - clamp(2rem, 6vw, 4rem));
+        border: 2px solid rgba(117, 73, 40, 0.18);
+        border-radius: 8px;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.38)),
+          repeating-linear-gradient(90deg, rgba(117, 73, 40, 0.08) 0 1px, transparent 1px 4.5rem),
+          repeating-linear-gradient(0deg, rgba(117, 73, 40, 0.08) 0 1px, transparent 1px 4.5rem),
+          var(--paper);
+        box-shadow: 0 1.4rem 3rem var(--shadow);
+        overflow: hidden;
+      }
+
+      .bakery::before,
+      .bakery::after {
+        content: "";
+        position: absolute;
+        inset-inline: 0;
+        height: 4.5rem;
+        background:
+          linear-gradient(90deg, var(--rose) 0 12.5%, var(--cream) 12.5% 25%, var(--rose) 25% 37.5%, var(--cream) 37.5% 50%, var(--rose) 50% 62.5%, var(--cream) 62.5% 75%, var(--rose) 75% 87.5%, var(--cream) 87.5% 100%);
+        background-size: 14rem 100%;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .bakery::before {
+        top: 0;
+        clip-path: polygon(0 0, 100% 0, 100% 66%, 95% 100%, 90% 66%, 85% 100%, 80% 66%, 75% 100%, 70% 66%, 65% 100%, 60% 66%, 55% 100%, 50% 66%, 45% 100%, 40% 66%, 35% 100%, 30% 66%, 25% 100%, 20% 66%, 15% 100%, 10% 66%, 5% 100%, 0 66%);
+      }
+
+      .bakery::after {
+        bottom: 0;
+        height: 3rem;
+        opacity: 0.24;
+      }
+
+      .topbar {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: clamp(1rem, 2.5vw, 1.35rem);
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: clamp(1.85rem, 4vw, 3rem);
+        line-height: 1;
+      }
+
+      .brand p {
+        margin: 0.4rem 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .save-pill {
+        align-self: start;
+        min-width: 7.5rem;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid rgba(90, 60, 35, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .stage {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        padding: clamp(1rem, 2vw, 2rem);
+      }
+
+      .cookie-button {
+        position: relative;
+        width: min(58vw, 23rem);
+        max-width: 100%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 28% 24%, #f7bf6b 0 8%, transparent 9%),
+          radial-gradient(circle at 62% 31%, #5a3027 0 5%, transparent 6%),
+          radial-gradient(circle at 40% 56%, #5a3027 0 6%, transparent 7%),
+          radial-gradient(circle at 70% 62%, #5a3027 0 4.5%, transparent 5.5%),
+          radial-gradient(circle at 34% 75%, #5a3027 0 4.5%, transparent 5.5%),
+          radial-gradient(circle at 50% 44%, #d9924b 0 58%, #a75d31 59% 70%, #6e3f27 71% 100%);
+        box-shadow:
+          inset -1.1rem -1.4rem 0 rgba(90, 50, 26, 0.22),
+          inset 0.8rem 0.9rem 0 rgba(255, 231, 163, 0.4),
+          0 1.5rem 2.2rem rgba(98, 54, 24, 0.26);
+        transition: transform 110ms ease, filter 110ms ease;
+      }
+
+      .cookie-button:hover {
+        filter: saturate(1.06);
+      }
+
+      .cookie-button:active,
+      .cookie-button.is-pressed {
+        transform: scale(0.94);
+      }
+
+      .cookie-button::before {
+        content: "";
+        position: absolute;
+        inset: 8%;
+        border-radius: inherit;
+        border: 0.75rem dashed rgba(255, 231, 163, 0.16);
+      }
+
+      .crumb {
+        position: absolute;
+        left: var(--x);
+        top: var(--y);
+        z-index: 3;
+        color: var(--cookie-dark);
+        font-weight: 900;
+        pointer-events: none;
+        animation: pop 700ms ease-out forwards;
+      }
+
+      @keyframes pop {
+        from {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(0.8);
+        }
+        to {
+          opacity: 0;
+          transform: translate(calc(-50% + var(--dx)), calc(-50% - 4.4rem)) scale(1.25);
+        }
+      }
+
+      .golden-cookie {
+        position: absolute;
+        z-index: 4;
+        display: none;
+        width: 5.6rem;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 31% 30%, #fff2a6 0 9%, transparent 10%),
+          radial-gradient(circle at 58% 38%, #946622 0 5%, transparent 6%),
+          radial-gradient(circle at 43% 63%, #946622 0 5%, transparent 6%),
+          radial-gradient(circle, #ffe27a 0 58%, #d59720 59% 100%);
+        box-shadow: 0 0 1.4rem rgba(246, 200, 86, 0.95), 0 1rem 1.6rem rgba(85, 52, 24, 0.22);
+        animation: bob 820ms ease-in-out infinite alternate;
+      }
+
+      .golden-cookie.is-visible {
+        display: block;
+      }
+
+      @keyframes bob {
+        from {
+          transform: translateY(0) rotate(-4deg);
+        }
+        to {
+          transform: translateY(-0.8rem) rotate(5deg);
+        }
+      }
+
+      .counter-strip {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.7rem;
+        padding: clamp(1rem, 2.5vw, 1.35rem);
+      }
+
+      .stat {
+        min-width: 0;
+        padding: 0.85rem;
+        border: 1px solid rgba(90, 60, 35, 0.14);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.68);
+      }
+
+      .stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .stat strong {
+        display: block;
+        margin-top: 0.18rem;
+        font-size: clamp(1.1rem, 2.5vw, 1.55rem);
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+      }
+
+      .side {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 1rem;
+        min-height: calc(100dvh - clamp(2rem, 6vw, 4rem));
+      }
+
+      .panel {
+        border: 1px solid rgba(58, 46, 35, 0.16);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.76);
+        box-shadow: 0 1rem 2rem rgba(83, 52, 26, 0.12);
+        backdrop-filter: blur(10px);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+        padding: 1rem;
+      }
+
+      .summary .stat {
+        background: rgba(255, 250, 240, 0.82);
+      }
+
+      .shop {
+        min-height: 0;
+        overflow: auto;
+        padding: 1rem;
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        margin-bottom: 0.8rem;
+      }
+
+      .panel-title h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .panel-title span {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .shop-list {
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .buy-card {
+        display: grid;
+        grid-template-columns: 2.6rem 1fr auto;
+        gap: 0.7rem;
+        align-items: center;
+        width: 100%;
+        padding: 0.85rem;
+        border: 1px solid rgba(80, 57, 35, 0.14);
+        background: linear-gradient(135deg, rgba(255, 250, 240, 0.95), rgba(235, 247, 241, 0.92));
+        text-align: left;
+        transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+      }
+
+      .buy-card:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0.65rem 1rem rgba(93, 61, 34, 0.12);
+      }
+
+      .buy-card:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
+      .item-icon {
+        display: grid;
+        place-items: center;
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 8px;
+        background: var(--sky);
+        font-size: 1.45rem;
+      }
+
+      .buy-card:nth-child(2) .item-icon {
+        background: var(--mint);
+      }
+
+      .buy-card:nth-child(3) .item-icon {
+        background: #f5c5d7;
+      }
+
+      .buy-card:nth-child(4) .item-icon {
+        background: #dac8ff;
+      }
+
+      .item-copy strong,
+      .price strong {
+        display: block;
+      }
+
+      .item-copy small,
+      .price small {
+        display: block;
+        margin-top: 0.16rem;
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .price {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .actions {
+        display: grid;
+        gap: 0.65rem;
+        padding: 1rem;
+      }
+
+      .action-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.6rem;
+      }
+
+      .bonus {
+        min-height: 2.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.7rem;
+        border-radius: 8px;
+        background: rgba(255, 240, 200, 0.88);
+        color: #704923;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .control-btn {
+        min-height: 2.7rem;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid rgba(72, 53, 35, 0.14);
+        background: #ffffff;
+        font-weight: 800;
+      }
+
+      .control-btn.primary {
+        background: var(--ink);
+        color: #ffffff;
+      }
+
+      .toast {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 20;
+        max-width: min(22rem, calc(100vw - 2rem));
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        background: var(--ink);
+        color: #ffffff;
+        box-shadow: 0 0.9rem 2rem rgba(34, 25, 18, 0.28);
+        opacity: 0;
+        transform: translateY(1rem);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .toast.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 820px) {
+        .game {
+          grid-template-columns: 1fr;
+        }
+
+        .bakery,
+        .side {
+          min-height: auto;
+        }
+
+        .stage {
+          min-height: 44dvh;
+        }
+
+        .counter-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .side {
+          grid-template-rows: auto;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .game {
+          padding: 0.75rem;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .save-pill {
+          justify-self: start;
+        }
+
+        .summary,
+        .action-row {
+          grid-template-columns: 1fr;
+        }
+
+        .buy-card {
+          grid-template-columns: 2.5rem 1fr;
+        }
+
+        .price {
+          grid-column: 2;
+          text-align: left;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game">
+      <section class="bakery" aria-label="쿠키 굽기">
+        <header class="topbar">
+          <div class="brand">
+            <h1>쿠키 가게 클릭</h1>
+            <p id="mood">따끈한 쿠키 냄새가 나요.</p>
+          </div>
+          <div class="save-pill" id="saveState">저장 준비</div>
+        </header>
+
+        <div class="stage" id="stage">
+          <button class="cookie-button" id="cookieButton" type="button" aria-label="쿠키 굽기"></button>
+          <button class="golden-cookie" id="goldenCookie" type="button" aria-label="황금 쿠키"></button>
+        </div>
+
+        <section class="counter-strip" aria-label="현재 점수">
+          <div class="stat">
+            <span>쿠키</span>
+            <strong id="cookies">0</strong>
+          </div>
+          <div class="stat">
+            <span>한 번에</span>
+            <strong id="perClick">+1</strong>
+          </div>
+          <div class="stat">
+            <span>초당</span>
+            <strong id="perSecond">0</strong>
+          </div>
+        </section>
+      </section>
+
+      <aside class="side" aria-label="가게 관리">
+        <section class="panel summary" aria-label="기록">
+          <div class="stat">
+            <span>총 클릭</span>
+            <strong id="totalClicks">0</strong>
+          </div>
+          <div class="stat">
+            <span>총 생산</span>
+            <strong id="totalProduced">0</strong>
+          </div>
+          <div class="stat">
+            <span>황금 쿠키</span>
+            <strong id="goldenCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>업적</span>
+            <strong id="achievementCount">0/7</strong>
+          </div>
+        </section>
+
+        <section class="panel shop" aria-label="상점">
+          <div class="panel-title">
+            <h2>상점</h2>
+            <span id="shopHint">구울수록 더 빨라져요</span>
+          </div>
+          <div class="shop-list" id="shopList"></div>
+        </section>
+
+        <section class="panel actions" aria-label="설정">
+          <div class="bonus" id="bonusState">보너스 대기 중</div>
+          <div class="action-row">
+            <button class="control-btn primary" id="saveButton" type="button">저장</button>
+            <button class="control-btn" id="resetButton" type="button">처음부터</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const storageKey = "doheeplay-cookie-bakery-clicker-v1";
+      const achievementCatalog = [
+        { id: "firstClick", name: "첫 쿠키", test: (state) => state.totalClicks >= 1 },
+        { id: "fiftyCookies", name: "한 접시 완성", test: (state) => state.totalProduced >= 50 },
+        { id: "hundredCookies", name: "100 쿠키", test: (state) => state.totalProduced >= 100 },
+        { id: "thousandCookies", name: "1000 쿠키", test: (state) => state.totalProduced >= 1000 },
+        { id: "tenHelpers", name: "분주한 가게", test: (state) => totalOwned(state) >= 10 },
+        { id: "goldenOne", name: "반짝 쿠키", test: (state) => state.goldenClicks >= 1 },
+        { id: "speedy", name: "빠른 오븐", test: (state) => perSecond(state) >= 25 }
+      ];
+
+      const shopItems = [
+        {
+          id: "glove",
+          icon: "🧤",
+          name: "반죽 장갑",
+          detail: "클릭 힘 +1",
+          basePrice: 15,
+          growth: 1.18,
+          apply: (state) => {
+            state.clickBonus += 1;
+          }
+        },
+        {
+          id: "helper",
+          icon: "🤖",
+          name: "도우미 손",
+          detail: "초당 +1",
+          basePrice: 25,
+          growth: 1.2,
+          cps: 1
+        },
+        {
+          id: "oven",
+          icon: "🔥",
+          name: "따끈 오븐",
+          detail: "초당 +5",
+          basePrice: 90,
+          growth: 1.27,
+          cps: 5
+        },
+        {
+          id: "shop",
+          icon: "🏪",
+          name: "작은 가게",
+          detail: "초당 +24",
+          basePrice: 480,
+          growth: 1.34,
+          cps: 24
+        }
+      ];
+
+      const elements = {
+        stage: document.getElementById("stage"),
+        cookieButton: document.getElementById("cookieButton"),
+        goldenCookie: document.getElementById("goldenCookie"),
+        cookies: document.getElementById("cookies"),
+        perClick: document.getElementById("perClick"),
+        perSecond: document.getElementById("perSecond"),
+        totalClicks: document.getElementById("totalClicks"),
+        totalProduced: document.getElementById("totalProduced"),
+        goldenCount: document.getElementById("goldenCount"),
+        achievementCount: document.getElementById("achievementCount"),
+        shopList: document.getElementById("shopList"),
+        shopHint: document.getElementById("shopHint"),
+        mood: document.getElementById("mood"),
+        bonusState: document.getElementById("bonusState"),
+        saveState: document.getElementById("saveState"),
+        saveButton: document.getElementById("saveButton"),
+        resetButton: document.getElementById("resetButton"),
+        toast: document.getElementById("toast")
+      };
+
+      const defaultState = {
+        cookies: 0,
+        clickBonus: 0,
+        totalClicks: 0,
+        totalProduced: 0,
+        goldenClicks: 0,
+        bonusUntil: 0,
+        purchases: {},
+        achievements: {}
+      };
+
+      let state = loadState();
+      let audioContext = null;
+      let toastTimer = 0;
+      let lastTick = performance.now();
+      let lastSave = 0;
+      const shopNodes = new Map();
+
+      function loadState() {
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (!saved) {
+            return structuredClone(defaultState);
+          }
+
+          const parsed = JSON.parse(saved);
+          return {
+            ...structuredClone(defaultState),
+            ...parsed,
+            purchases: { ...defaultState.purchases, ...(parsed.purchases || {}) },
+            achievements: { ...defaultState.achievements, ...(parsed.achievements || {}) }
+          };
+        } catch {
+          return structuredClone(defaultState);
+        }
+      }
+
+      function saveState(label = "저장됨") {
+        localStorage.setItem(storageKey, JSON.stringify(state));
+        elements.saveState.textContent = label;
+        lastSave = performance.now();
+      }
+
+      function totalOwned(currentState) {
+        return Object.values(currentState.purchases || {}).reduce((sum, count) => sum + count, 0);
+      }
+
+      function clickValue(currentState) {
+        const bonus = bonusMultiplier(currentState) > 1 ? 2 : 1;
+        return (1 + currentState.clickBonus) * bonus;
+      }
+
+      function perSecond(currentState) {
+        const base = shopItems.reduce((sum, item) => {
+          const count = currentState.purchases[item.id] || 0;
+          return sum + (item.cps || 0) * count;
+        }, 0);
+        return base * bonusMultiplier(currentState);
+      }
+
+      function bonusMultiplier(currentState) {
+        return Date.now() < currentState.bonusUntil ? 2 : 1;
+      }
+
+      function priceFor(item, count) {
+        return Math.floor(item.basePrice * item.growth ** count);
+      }
+
+      function formatNumber(value) {
+        const rounded = Math.floor(value);
+        return new Intl.NumberFormat("ko-KR").format(rounded);
+      }
+
+      function renderShop() {
+        if (shopNodes.size === 0) {
+          const cards = shopItems.map((item) => {
+            const button = document.createElement("button");
+            button.className = "buy-card";
+            button.type = "button";
+            button.dataset.item = item.id;
+
+            const icon = document.createElement("span");
+            icon.className = "item-icon";
+            icon.textContent = item.icon;
+
+            const copy = document.createElement("span");
+            copy.className = "item-copy";
+            const name = document.createElement("strong");
+            name.textContent = item.name;
+            const detail = document.createElement("small");
+            copy.append(name, detail);
+
+            const priceBox = document.createElement("span");
+            priceBox.className = "price";
+            const priceValue = document.createElement("strong");
+            const priceLabel = document.createElement("small");
+            priceLabel.textContent = "쿠키";
+            priceBox.append(priceValue, priceLabel);
+
+            button.append(icon, copy, priceBox);
+            button.addEventListener("click", () => buyItem(item));
+            shopNodes.set(item.id, { button, detail, priceValue });
+            return button;
+          });
+
+          elements.shopList.replaceChildren(...cards);
+        }
+
+        for (const item of shopItems) {
+          const count = state.purchases[item.id] || 0;
+          const price = priceFor(item, count);
+          const node = shopNodes.get(item.id);
+          node.button.disabled = state.cookies < price;
+          node.detail.textContent = `${item.detail} · 보유 ${formatNumber(count)}`;
+          node.priceValue.textContent = formatNumber(price);
+        }
+      }
+
+      function render() {
+        const cps = perSecond(state);
+        elements.cookies.textContent = formatNumber(state.cookies);
+        elements.perClick.textContent = `+${formatNumber(clickValue(state))}`;
+        elements.perSecond.textContent = formatNumber(cps);
+        elements.totalClicks.textContent = formatNumber(state.totalClicks);
+        elements.totalProduced.textContent = formatNumber(state.totalProduced);
+        elements.goldenCount.textContent = formatNumber(state.goldenClicks);
+
+        const unlocked = achievementCatalog.filter((achievement) => state.achievements[achievement.id]).length;
+        elements.achievementCount.textContent = `${unlocked}/${achievementCatalog.length}`;
+        elements.shopHint.textContent = state.cookies >= cheapestPrice() ? "살 수 있는 물건이 있어요" : "쿠키를 더 모아볼까요";
+        elements.mood.textContent = moodText();
+
+        const remainingBonus = Math.max(0, Math.ceil((state.bonusUntil - Date.now()) / 1000));
+        elements.bonusState.textContent = remainingBonus > 0 ? `반짝 보너스 ${remainingBonus}초` : "보너스 대기 중";
+        elements.saveState.textContent = performance.now() - lastSave < 1400 ? elements.saveState.textContent : "자동 저장 켜짐";
+
+        renderShop();
+      }
+
+      function moodText() {
+        if (state.totalProduced >= 1000) {
+          return "동네에서 제일 달콤한 가게가 됐어요.";
+        }
+        if (totalOwned(state) >= 8) {
+          return "오븐이 쉬지 않고 따뜻하게 돌아가요.";
+        }
+        if (state.totalClicks >= 25) {
+          return "쟁반 위에 쿠키가 차곡차곡 쌓여요.";
+        }
+        return "따끈한 쿠키 냄새가 나요.";
+      }
+
+      function cheapestPrice() {
+        return Math.min(...shopItems.map((item) => priceFor(item, state.purchases[item.id] || 0)));
+      }
+
+      function buyItem(item) {
+        const count = state.purchases[item.id] || 0;
+        const price = priceFor(item, count);
+        if (state.cookies < price) {
+          playTone(130, 0.05, "sawtooth", 0.03);
+          showToast("쿠키가 조금 더 필요해요");
+          return;
+        }
+
+        state.cookies -= price;
+        state.purchases[item.id] = count + 1;
+        if (item.apply) {
+          item.apply(state);
+        }
+
+        playTone(420, 0.08, "triangle", 0.05);
+        showToast(`${item.name} 추가!`);
+        checkAchievements();
+        saveState("구매 저장");
+        render();
+      }
+
+      function bakeCookie(event) {
+        const amount = clickValue(state);
+        state.cookies += amount;
+        state.totalClicks += 1;
+        state.totalProduced += amount;
+
+        const rect = elements.stage.getBoundingClientRect();
+        const x = event?.clientX ? event.clientX - rect.left : rect.width / 2;
+        const y = event?.clientY ? event.clientY - rect.top : rect.height / 2;
+        showCrumb(x, y, `+${formatNumber(amount)}`);
+
+        elements.cookieButton.classList.add("is-pressed");
+        window.setTimeout(() => elements.cookieButton.classList.remove("is-pressed"), 90);
+        playTone(260 + Math.random() * 90, 0.055, "triangle", 0.04);
+        checkAchievements();
+        render();
+      }
+
+      function showCrumb(x, y, text) {
+        const crumb = document.createElement("span");
+        crumb.className = "crumb";
+        crumb.textContent = text;
+        crumb.style.setProperty("--x", `${x}px`);
+        crumb.style.setProperty("--y", `${y}px`);
+        crumb.style.setProperty("--dx", `${Math.round((Math.random() - 0.5) * 90)}px`);
+        elements.stage.append(crumb);
+        window.setTimeout(() => crumb.remove(), 760);
+      }
+
+      function spawnGoldenCookie() {
+        if (elements.goldenCookie.classList.contains("is-visible")) {
+          return;
+        }
+
+        const stageRect = elements.stage.getBoundingClientRect();
+        const size = 90;
+        const left = Math.max(12, Math.random() * (stageRect.width - size - 24));
+        const top = Math.max(12, Math.random() * (stageRect.height - size - 24));
+
+        elements.goldenCookie.style.left = `${left}px`;
+        elements.goldenCookie.style.top = `${top}px`;
+        elements.goldenCookie.classList.add("is-visible");
+        window.setTimeout(() => {
+          elements.goldenCookie.classList.remove("is-visible");
+        }, 7000);
+      }
+
+      function collectGoldenCookie() {
+        if (!elements.goldenCookie.classList.contains("is-visible")) {
+          return;
+        }
+
+        const reward = Math.max(40, Math.floor(state.cookies * 0.12));
+        state.cookies += reward;
+        state.totalProduced += reward;
+        state.goldenClicks += 1;
+        state.bonusUntil = Date.now() + 10000;
+        elements.goldenCookie.classList.remove("is-visible");
+        playSparkle();
+        showToast(`황금 쿠키 +${formatNumber(reward)}`);
+        checkAchievements();
+        saveState("반짝 저장");
+        render();
+      }
+
+      function checkAchievements() {
+        for (const achievement of achievementCatalog) {
+          if (!state.achievements[achievement.id] && achievement.test(state)) {
+            state.achievements[achievement.id] = true;
+            showToast(`업적: ${achievement.name}`);
+            playTone(640, 0.1, "sine", 0.05);
+          }
+        }
+      }
+
+      function showToast(message) {
+        window.clearTimeout(toastTimer);
+        elements.toast.textContent = message;
+        elements.toast.classList.add("is-visible");
+        toastTimer = window.setTimeout(() => {
+          elements.toast.classList.remove("is-visible");
+        }, 1900);
+      }
+
+      function ensureAudio() {
+        if (!audioContext) {
+          audioContext = new AudioContext();
+        }
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      }
+
+      function playTone(frequency, duration, type, volume) {
+        try {
+          ensureAudio();
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          oscillator.type = type;
+          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+          gain.gain.setValueAtTime(volume, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + duration);
+        } catch {
+          audioContext = null;
+        }
+      }
+
+      function playSparkle() {
+        playTone(520, 0.08, "sine", 0.04);
+        window.setTimeout(() => playTone(760, 0.08, "sine", 0.04), 70);
+        window.setTimeout(() => playTone(980, 0.12, "sine", 0.04), 140);
+      }
+
+      function tick(now) {
+        const delta = Math.min(1, (now - lastTick) / 1000);
+        lastTick = now;
+
+        const produced = perSecond(state) * delta;
+        if (produced > 0) {
+          state.cookies += produced;
+          state.totalProduced += produced;
+        }
+
+        if (now - lastSave > 6000) {
+          saveState("자동 저장됨");
+        }
+
+        checkAchievements();
+        render();
+        requestAnimationFrame(tick);
+      }
+
+      function resetGame() {
+        if (!confirm("쿠키 가게를 처음부터 다시 시작할까요?")) {
+          return;
+        }
+
+        state = structuredClone(defaultState);
+        saveState("초기화됨");
+        showToast("처음부터 다시 시작!");
+        render();
+      }
+
+      elements.cookieButton.addEventListener("pointerdown", bakeCookie);
+      elements.goldenCookie.addEventListener("pointerdown", collectGoldenCookie);
+      elements.saveButton.addEventListener("click", () => {
+        saveState("직접 저장됨");
+        showToast("저장했어요");
+      });
+      elements.resetButton.addEventListener("click", resetGame);
+
+      window.addEventListener("keydown", (event) => {
+        if (event.code !== "Space" || event.repeat) {
+          return;
+        }
+
+        event.preventDefault();
+        bakeCookie();
+      }, { passive: false });
+
+      window.setInterval(spawnGoldenCookie, 18000);
+      renderShop();
+      checkAchievements();
+      render();
+      saveState("불러옴");
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>

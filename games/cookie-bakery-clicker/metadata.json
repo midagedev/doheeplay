@@ -1,0 +1,7 @@
+{
+  "title": "쿠키 가게 클릭",
+  "description": "쿠키를 톡톡 눌러 굽고, 도우미와 오븐을 모아 작은 쿠키 가게를 키우는 클릭 게임.",
+  "createdAt": "2026-07-13",
+  "tags": ["clicker", "cookie", "shop"],
+  "controls": ["Click", "Touch", "Space"]
+}
