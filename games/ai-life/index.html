@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI의 생활</title>
+  <style>
+    :root {
+      --bg: #fef6f0;
+      --card: #ffffff;
+      --primary: #ff8fab;
+      --primary-dark: #ff6b9d;
+      --secondary: #a2d2ff;
+      --text: #2d2a32;
+      --muted: #8a8690;
+      --success: #95d5b2;
+      --border: #ffe5ec;
+      --shadow: 0 8px 24px rgba(255, 107, 157, 0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(160deg, #fef6f0 0%, #fff0f5 50%, #f0f7ff 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .app { max-width: 1100px; margin: 0 auto; padding: 16px; min-height: 100vh; display: flex; flex-direction: column; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .logo { font-size: 1.6rem; font-weight: 800; color: var(--primary-dark); display: flex; align-items: center; gap: 8px; }
+    .logo span { font-size: 1.8rem; }
+    .btn {
+      border: none; border-radius: 14px; padding: 10px 18px; font-weight: 700;
+      cursor: pointer; font-size: 0.95rem; transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: white; box-shadow: 0 4px 14px rgba(255,107,157,0.35); }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--secondary); color: #1a3a5c; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 2px solid var(--border); }
+    .btn-small { padding: 6px 12px; font-size: 0.85rem; border-radius: 10px; }
+
+    /* 화면 전환 */
+    .screen { display: none; flex: 1; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* 세계 목록 */
+    .world-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px; margin-top: 8px;
+    }
+    .world-card {
+      background: var(--card); border-radius: 20px; padding: 20px;
+      box-shadow: var(--shadow); border: 2px solid var(--border);
+      cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .world-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(255,107,157,0.18); }
+    .world-card h3 { font-size: 1.15rem; margin-bottom: 6px; }
+    .world-card p { font-size: 0.85rem; color: var(--muted); }
+    .world-card .count { position: absolute; top: 14px; right: 14px; background: #ffe5ec; color: var(--primary-dark); font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty-state .emoji { font-size: 3.5rem; margin-bottom: 12px; }
+
+    /* 채팅 화면 */
+    .chat-layout { display: flex; gap: 16px; flex: 1; min-height: 0; }
+    .sidebar {
+      width: 220px; flex-shrink: 0; background: var(--card); border-radius: 20px;
+      padding: 16px; box-shadow: var(--shadow); border: 2px solid var(--border);
+      display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+    }
+    .char-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px;
+      border-radius: 14px; cursor: pointer; transition: background 0.15s;
+    }
+    .char-item:hover, .char-item.active { background: #fff0f5; }
+    .char-avatar {
+      width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #ffc2d1, #a2d2ff);
+      display: grid; place-items: center; font-size: 1.4rem; flex-shrink: 0;
+    }
+    .char-info { flex: 1; min-width: 0; }
+    .char-info .name { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .char-info .mood { font-size: 0.75rem; color: var(--muted); }
+    .main-chat {
+      flex: 1; display: flex; flex-direction: column; background: var(--card);
+      border-radius: 20px; box-shadow: var(--shadow); border: 2px solid var(--border); min-height: 0;
+    }
+    .chat-header {
+      padding: 14px 18px; border-bottom: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .chat-header h2 { font-size: 1.15rem; }
+    .messages {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .msg {
+      max-width: 85%; padding: 12px 16px; border-radius: 18px; font-size: 0.95rem;
+      line-height: 1.45; position: relative;
+    }
+    .msg.user {
+      align-self: flex-end; background: var(--primary); color: white;
+      border-bottom-right-radius: 6px;
+    }
+    .msg.ai {
+      align-self: flex-start; background: #f8f4ff; border: 1.5px solid #e8e0f5;
+      border-bottom-left-radius: 6px;
+    }
+    .msg .who { font-size: 0.75rem; font-weight: 700; margin-bottom: 4px; opacity: 0.85; }
+    .msg .expr { display: inline-block; background: #ffe5ec; color: var(--primary-dark); font-size: 0.78rem; padding: 2px 8px; border-radius: 8px; margin-right: 6px; font-weight: 600; }
+    .msg .time { font-size: 0.7rem; opacity: 0.6; margin-top: 4px; }
+    .input-area {
+      padding: 14px 16px; border-top: 2px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    .input-area textarea {
+      flex: 1; border: 2px solid var(--border); border-radius: 16px; padding: 12px 14px;
+      font-size: 0.95rem; font-family: inherit; resize: none; min-height: 48px; max-height: 120px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .input-area textarea:focus { border-color: var(--primary); }
+    .diary-box {
+      background: #fff9e6; border: 2px solid #ffe8a3; border-radius: 16px;
+      padding: 14px 16px; margin: 0 16px 12px; font-size: 0.9rem;
+    }
+    .diary-box h4 { margin-bottom: 6px; color: #b8860b; font-size: 0.9rem; }
+
+    /* 모달 */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(45,42,50,0.45);
+      display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: white; border-radius: 24px; padding: 24px; width: min(480px, 100%);
+      max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+    }
+    .modal h3 { font-size: 1.25rem; margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; border: 2px solid var(--border); border-radius: 12px; padding: 10px 12px;
+      font-size: 0.95rem; font-family: inherit; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
+    .form-group textarea { min-height: 70px; resize: vertical; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+    @media (max-width: 700px) {
+      .chat-layout { flex-direction: column; }
+      .sidebar { width: 100%; max-height: 140px; flex-direction: row; overflow-x: auto; }
+      .char-item { flex-direction: column; min-width: 80px; text-align: center; }
+      .char-info .name { font-size: 0.8rem; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ===== 세계 목록 화면 ===== -->
+    <div id="screen-worlds" class="screen active">
+      <header>
+        <div class="logo"><span>🌟</span> AI의 생활</div>
+        <button class="btn btn-primary" onclick="openCreateWorld()">＋ 새 세계 만들기</button>
+      </header>
+      <div id="world-list" class="world-grid"></div>
+    </div>
+
+    <!-- ===== 채팅 화면 ===== -->
+    <div id="screen-chat" class="screen">
+      <header>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="btn btn-ghost btn-small" onclick="goToWorlds()">← 세계 목록</button>
+          <div class="logo" style="font-size:1.2rem;"><span>🌍</span> <span id="current-world-name">세계</span></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-small" onclick="openCreateChar()">＋ 캐릭터 추가</button>
+          <button class="btn btn-ghost btn-small" onclick="showDayLog()">📅 하루 기록</button>
+        </div>
+      </header>
+      <div class="chat-layout">
+        <aside class="sidebar" id="char-sidebar">
+          <!-- 캐릭터 목록 -->
+        </aside>
+        <div class="main-chat">
+          <div class="chat-header">
+            <h2 id="chat-title">대화를 시작해 보세요</h2>
+            <span id="char-count" style="font-size:0.85rem;color:var(--muted);"></span>
+          </div>
+          <div id="diary-area"></div>
+          <div class="messages" id="messages"></div>
+          <div class="input-area">
+            <textarea id="user-input" placeholder="메시지를 입력하세요... (Enter로 전송)" rows="1"></textarea>
+            <button class="btn btn-primary" onclick="sendMessage()">보내기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 세계 생성 모달 -->
+  <div class="modal-overlay" id="modal-world">
+    <div class="modal">
+      <h3>🌍 새 세계 만들기</h3>
+      <div class="form-group">
+        <label>세계 이름</label>
+        <input type="text" id="world-name" placeholder="예: 루나의 세계, 판타지 왕국">
+      </div>
+      <div class="form-group">
+        <label>간단한 설명 (선택)</label>
+        <input type="text" id="world-desc" placeholder="이 세계의 분위기나 배경">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-world')">취소</button>
+        <button class="btn btn-primary" onclick="createWorld()">만들기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 캐릭터 생성 모달 -->
+  <div class="modal-overlay" id="modal-char">
+    <div class="modal">
+      <h3>✨ 캐릭터 만들기</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>이름 *</label>
+          <input type="text" id="char-name" placeholder="루나">
+        </div>
+        <div class="form-group">
+          <label>성별</label>
+          <select id="char-gender">
+            <option value="여자">여자</option>
+            <option value="남자">남자</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>나이</label>
+          <input type="text" id="char-age" placeholder="17" value="17">
+        </div>
+        <div class="form-group">
+          <label>직업</label>
+          <input type="text" id="char-job" placeholder="마법사, 학생, 로봇...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>성격 *</label>
+        <input type="text" id="char-personality" placeholder="밝고 호기심 많은, 차분하고 친절한">
+      </div>
+      <div class="form-group">
+        <label>말투</label>
+        <select id="char-speech">
+          <option value="존댓말">존댓말</option>
+          <option value="반말">반말</option>
+          <option value="장난스러운">장난스러운 말투</option>
+          <option value="차분한">차분한 말투</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>취미</label>
+        <input type="text" id="char-hobby" placeholder="별 보기, 그림 그리기">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>좋아하는 것</label>
+          <input type="text" id="char-likes" placeholder="고양이, 별, 달콤한 것">
+        </div>
+        <div class="form-group">
+          <label>싫어하는 것</label>
+          <input type="text" id="char-dislikes" placeholder="더위, 거짓말">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>배경 이야기</label>
+        <textarea id="char-bg" placeholder="이 캐릭터의 간단한 이야기..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>목표</label>
+        <input type="text" id="char-goal" placeholder="새로운 별을 발견하는 것">
+      </div>
+      <div class="form-group">
+        <label>아바타 이모지</label>
+        <input type="text" id="char-emoji" placeholder="😊" value="😊" maxlength="2">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-char')">취소</button>
+        <button class="btn btn-secondary" onclick="randomChar()">랜덤 생성</button>
+        <button class="btn btn-primary" onclick="createChar()">만들기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 데이터 & 저장 ==========
+    const STORAGE_KEY = 'ai-life-v1';
+    let data = { worlds: [] };
+    let currentWorldId = null;
+    let selectedCharId = null;
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) data = JSON.parse(raw);
+      } catch (e) { data = { worlds: [] }; }
+    }
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+    // ========== 세계 ==========
+    function renderWorlds() {
+      const list = document.getElementById('world-list');
+      if (data.worlds.length === 0) {
+        list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+          <div class="emoji">🌌</div>
+          <p>아직 세계가 없어요.<br>첫 번째 세계를 만들어 보세요!</p>
+        </div>`;
+        return;
+      }
+      list.innerHTML = data.worlds.map(w => `
+        <div class="world-card" onclick="enterWorld('${w.id}')">
+          <div class="count">${w.characters.length}명</div>
+          <h3>${escapeHtml(w.name)}</h3>
+          <p>${escapeHtml(w.desc || '설명 없음')}</p>
+          <p style="margin-top:8px;font-size:0.8rem;">대화 ${w.messages.length}개</p>
+        </div>
+      `).join('');
+    }
+
+    function openCreateWorld() {
+      document.getElementById('world-name').value = '';
+      document.getElementById('world-desc').value = '';
+      document.getElementById('modal-world').classList.add('show');
+    }
+    function createWorld() {
+      const name = document.getElementById('world-name').value.trim();
+      if (!name) { alert('세계 이름을 입력해 주세요!'); return; }
+      const world = {
+        id: uid(),
+        name,
+        desc: document.getElementById('world-desc').value.trim(),
+        created: Date.now(),
+        lastAccess: Date.now(),
+        characters: [],
+        messages: [],
+        memories: [],
+        dayLogs: []
+      };
+      data.worlds.push(world);
+      save();
+      closeModal('modal-world');
+      renderWorlds();
+    }
+
+    function enterWorld(id) {
+      currentWorldId = id;
+      const world = getWorld();
+      if (!world) return;
+      // 시간 경과에 따른 하루 기록 생성
+      generateDayLogsIfNeeded(world);
+      world.lastAccess = Date.now();
+      save();
+      document.getElementById('current-world-name').textContent = world.name;
+      document.getElementById('screen-worlds').classList.remove('active');
+      document.getElementById('screen-chat').classList.add('active');
+      selectedCharId = world.characters[0]?.id || null;
+      renderChat();
+    }
+    function goToWorlds() {
+      currentWorldId = null;
+      document.getElementById('screen-chat').classList.remove('active');
+      document.getElementById('screen-worlds').classList.add('active');
+      renderWorlds();
+    }
+    function getWorld() {
+      return data.worlds.find(w => w.id === currentWorldId);
+    }
+
+    // ========== 캐릭터 ==========
+    const RANDOM_NAMES = ['루나', '아리아', '레온', '미카', '하늘', '별이', '코코', '유리', '준', '소라', '리오', '하나'];
+    const RANDOM_PERSON = ['밝고 호기심 많은', '차분하고 다정한', '장난기 넘치는', '진지하고 성실한', '수줍고 따뜻한', '활발하고 에너지 넘치는'];
+    const RANDOM_JOB = ['학생', '마법사', '탐험가', '화가', '연구원', '가수', '요리사', '로봇', '기사', '사서'];
+    const RANDOM_HOBBY = ['별 보기', '그림 그리기', '책 읽기', '산책', '음악 듣기', '요리', '게임', '춤'];
+    const RANDOM_LIKES = ['고양이', '달콤한 디저트', '비 오는 날', '별빛', '따뜻한 차', '친구와의 대화'];
+    const RANDOM_DIS = ['더위', '거짓말', '시끄러운 곳', '외로움', '매운 음식'];
+    const EMOJIS = ['😊', '🌟', '🐱', '🌸', '🦊', '🌙', '✨', '🐰', '🍀', '🎀', '🦄', '🌈'];
+
+    function openCreateChar() {
+      document.getElementById('char-name').value = '';
+      document.getElementById('char-personality').value = '';
+      document.getElementById('char-job').value = '';
+      document.getElementById('char-hobby').value = '';
+      document.getElementById('char-likes').value = '';
+      document.getElementById('char-dislikes').value = '';
+      document.getElementById('char-bg').value = '';
+      document.getElementById('char-goal').value = '';
+      document.getElementById('char-emoji').value = '😊';
+      document.getElementById('modal-char').classList.add('show');
+    }
+    function randomChar() {
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+      document.getElementById('char-name').value = pick(RANDOM_NAMES);
+      document.getElementById('char-personality').value = pick(RANDOM_PERSON);
+      document.getElementById('char-job').value = pick(RANDOM_JOB);
+      document.getElementById('char-hobby').value = pick(RANDOM_HOBBY);
+      document.getElementById('char-likes').value = pick(RANDOM_LIKES);
+      document.getElementById('char-dislikes').value = pick(RANDOM_DIS);
+      document.getElementById('char-emoji').value = pick(EMOJIS);
+      document.getElementById('char-age').value = String(12 + Math.floor(Math.random() * 10));
+      document.getElementById('char-speech').value = pick(['존댓말', '반말', '장난스러운', '차분한']);
+    }
+    function createChar() {
+      const name = document.getElementById('char-name').value.trim();
+      const personality = document.getElementById('char-personality').value.trim();
+      if (!name || !personality) { alert('이름과 성격은 꼭 적어 주세요!'); return; }
+      const world = getWorld();
+      if (!world) return;
+      const char = {
+        id: uid(),
+        name,
+        gender: document.getElementById('char-gender').value,
+        age: document.getElementById('char-age').value.trim() || '?',
+        job: document.getElementById('char-job').value.trim() || '여행자',
+        personality,
+        speech: document.getElementById('char-speech').value,
+        hobby: document.getElementById('char-hobby').value.trim() || '생각하기',
+        likes: document.getElementById('char-likes').value.trim() || '대화',
+        dislikes: document.getElementById('char-dislikes').value.trim() || '없음',
+        background: document.getElementById('char-bg').value.trim(),
+        goal: document.getElementById('char-goal').value.trim() || '행복한 하루 보내기',
+        emoji: document.getElementById('char-emoji').value.trim() || '😊',
+        mood: '평온',
+        created: Date.now()
+      };
+      world.characters.push(char);
+      // 첫 인사 메시지
+      world.messages.push({
+        id: uid(),
+        type: 'ai',
+        charId: char.id,
+        text: makeGreeting(char),
+        expr: '미소',
+        time: Date.now()
+      });
+      save();
+      closeModal('modal-char');
+      selectedCharId = char.id;
+      renderChat();
+    }
+
+    function makeGreeting(char) {
+      const speech = char.speech;
+      if (speech === '반말') return `안녕! 나는 ${char.name}야. 앞으로 잘 지내자!`;
+      if (speech === '장난스러운') return `헤헤, 안녕~ 나는 ${char.name}! 나랑 놀자!`;
+      if (speech === '차분한') return `안녕하세요. 저는 ${char.name}입니다. 만나서 반갑습니다.`;
+      return `안녕하세요! 저는 ${char.name}이에요. 잘 부탁드려요.`;
+    }
+
+    // ========== 채팅 렌더 ==========
+    function renderChat() {
+      const world = getWorld();
+      if (!world) return;
+      // 사이드바
+      const side = document.getElementById('char-sidebar');
+      if (world.characters.length === 0) {
+        side.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.9rem;">캐릭터를<br>추가해 보세요!</div>`;
+      } else {
+        side.innerHTML = world.characters.map(c => `
+          <div class="char-item ${c.id === selectedCharId ? 'active' : ''}" onclick="selectChar('${c.id}')">
+            <div class="char-avatar">${c.emoji}</div>
+            <div class="char-info">
+              <div class="name">${escapeHtml(c.name)}</div>
+              <div class="mood">${c.mood || '평온'}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('char-count').textContent = `캐릭터 ${world.characters.length}명`;
+      document.getElementById('chat-title').textContent = world.characters.length
+        ? (selectedCharId ? world.characters.find(c => c.id === selectedCharId)?.name + '와 대화' : '모두와 대화')
+        : '캐릭터를 추가해 주세요';
+
+      // 메시지
+      const box = document.getElementById('messages');
+      box.innerHTML = world.messages.map(m => {
+        if (m.type === 'user') {
+          return `<div class="msg user"><div>${escapeHtml(m.text)}</div><div class="time">${formatTime(m.time)}</div></div>`;
+        }
+        const char = world.characters.find(c => c.id === m.charId);
+        const who = char ? char.name : 'AI';
+        const emoji = char ? char.emoji : '🤖';
+        return `<div class="msg ai">
+          <div class="who">${emoji} ${escapeHtml(who)}</div>
+          ${m.expr ? `<span class="expr">(${escapeHtml(m.expr)})</span>` : ''}
+          ${escapeHtml(m.text)}
+          <div class="time">${formatTime(m.time)}</div>
+        </div>`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+
+      // 최근 하루 기록 미리보기
+      const diaryArea = document.getElementById('diary-area');
+      if (world.dayLogs && world.dayLogs.length) {
+        const last = world.dayLogs[world.dayLogs.length - 1];
+        diaryArea.innerHTML = `<div class="diary-box"><h4>📔 ${last.date}의 하루</h4>${escapeHtml(last.summary)}</div>`;
+      } else {
+        diaryArea.innerHTML = '';
+      }
+    }
+
+    function selectChar(id) {
+      selectedCharId = id;
+      renderChat();
+    }
+
+    // ========== 메시지 전송 & AI 응답 ==========
+    function sendMessage() {
+      const input = document.getElementById('user-input');
+      const text = input.value.trim();
+      if (!text) return;
+      const world = getWorld();
+      if (!world || world.characters.length === 0) {
+        alert('먼저 캐릭터를 만들어 주세요!');
+        return;
+      }
+      world.messages.push({ id: uid(), type: 'user', text, time: Date.now() });
+      input.value = '';
+      // 기억 추출
+      extractMemories(world, text);
+      // AI 응답 생성
+      setTimeout(() => {
+        const responders = pickResponders(world);
+        responders.forEach((char, i) => {
+          setTimeout(() => {
+            const { text: reply, expr } = generateReply(char, text, world);
+            world.messages.push({
+              id: uid(), type: 'ai', charId: char.id, text: reply, expr, time: Date.now()
+            });
+            // 가끔 다른 캐릭터끼리 대화
+            if (i === responders.length - 1 && world.characters.length > 1 && Math.random() < 0.35) {
+              setTimeout(() => interCharTalk(world), 600);
+            }
+            save();
+            renderChat();
+          }, i * 450);
+        });
+        save();
+        renderChat();
+      }, 300);
+    }
+
+    function pickResponders(world) {
+      if (selectedCharId) {
+        const c = world.characters.find(x => x.id === selectedCharId);
+        return c ? [c] : [world.characters[0]];
+      }
+      // 모두 모드: 1~2명 랜덤
+      const shuffled = [...world.characters].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, Math.min(2, shuffled.length));
+    }
+
+    function extractMemories(world, userText) {
+      const lower = userText.toLowerCase();
+      const patterns = [
+        { re: /나는?\s*(.+?)(?:을|를|이|가)?\s*좋아/, key: '좋아함' },
+        { re: /나는?\s*(.+?)(?:을|를)?\s*싫어/, key: '싫어함' },
+        { re: /내\s*이름(?:은|이)?\s*(.+)/, key: '사용자이름' },
+        { re: /나는?\s*(.+?)(?:이야|야|입니다)/, key: '자기소개' }
+      ];
+      for (const p of patterns) {
+        const m = userText.match(p.re);
+        if (m) {
+          const val = m[1].trim().slice(0, 30);
+          if (val && !world.memories.some(mem => mem.key === p.key && mem.value === val)) {
+            world.memories.push({ key: p.key, value: val, time: Date.now() });
+          }
+        }
+      }
+      // 단순 키워드 기억
+      if (lower.includes('고양이')) addMem(world, '키워드', '고양이');
+      if (lower.includes('별')) addMem(world, '키워드', '별');
+      if (lower.includes('학교') || lower.includes('공부')) addMem(world, '키워드', '학교');
+    }
+    function addMem(world, key, value) {
+      if (!world.memories.some(m => m.key === key && m.value === value)) {
+        world.memories.push({ key, value, time: Date.now() });
+      }
+    }
+
+    function generateReply(char, userText, world) {
+      const lower = userText.toLowerCase();
+      const speech = char.speech;
+      const exprs = ['미소', '생각', '기쁨', '놀람', '부끄러움', '호기심'];
+      let expr = exprs[Math.floor(Math.random() * exprs.length)];
+      let reply = '';
+
+      // 기억 회상
+      const mem = world.memories.find(m => m.key === '좋아함') || world.memories.find(m => m.key === '키워드');
+      if (mem && Math.random() < 0.4 && (lower.includes('기억') || lower.includes('전에') || Math.random() < 0.25)) {
+        if (speech === '반말') reply = `아, 전에 ${mem.value} 좋아한다고 했잖아! 나도 기억해.`;
+        else if (speech === '장난스러운') reply = `히히, ${mem.value} 좋아하는 거 기억한다~ 나 똑똑하지?`;
+        else reply = `전에 ${mem.value}을(를) 좋아하신다고 하셨죠. 기억하고 있어요.`;
+        expr = '기쁨';
+        return { text: reply, expr };
+      }
+
+      // 캐릭터 자기 소개/성격 반영
+      if (lower.includes('너') && (lower.includes('누구') || lower.includes('소개') || lower.includes('뭐 해'))) {
+        if (speech === '반말') reply = `나는 ${char.name}야. ${char.personality} 성격이고, ${char.job}을 해. 취미는 ${char.hobby}!`;
+        else reply = `저는 ${char.name}이에요. ${char.personality} 편이고, ${char.job}을 하고 있어요. ${char.hobby}을 좋아해요.`;
+        expr = '미소';
+        return { text: reply, expr };
+      }
+
+      if (lower.includes('좋아') || lower.includes('싫어')) {
+        if (lower.includes(char.likes.split(',')[0]?.trim() || '없음')) {
+          reply = speech === '반말' ? `진짜? 나도 ${char.likes} 엄청 좋아해!` : `저도 ${char.likes}을 정말 좋아해요!`;
+          expr = '기쁨';
+        } else if (lower.includes('싫어')) {
+          reply = speech === '반말' ? `나는 ${char.dislikes} 별로야...` : `저는 ${char.dislikes}은 조금 苦手해요.`;
+          expr = '생각';
+        } else {
+          reply = speech === '반말' ? `오, 그렇구나. 나는 ${char.likes} 좋아해.` : `그렇군요. 저는 ${char.likes}을 좋아해요.`;
+        }
+        return { text: reply, expr };
+      }
+
+      // 기본 응답 풀
+      const templates = {
+        '존댓말': [
+          `재미있는 이야기네요. 더 들려주실래요?`,
+          `저도 그 생각에 동의해요. ${char.hobby} 할 때도 비슷한 느낌이 들어요.`,
+          `오늘 하루는 어떠셨나요? 저는 ${char.job} 일을 하다가 왔어요.`,
+          `와, 정말요? 신기해요. 조금 더 설명해 주실래요?`,
+          `듣고 보니 저도 궁금해지네요. 어떻게 생각하세요?`
+        ],
+        '반말': [
+          `오 진짜? 대박이다. 더 말해봐!`,
+          `나도 비슷한 생각이야. ${char.hobby} 하면서 그런 느낌 받아.`,
+          `오늘 뭐 했어? 나는 ${char.job} 하다가 왔어.`,
+          `헐 신기하다. 좀 더 자세히 알려줘.`,
+          `ㅋㅋ 재밌네. 너는 어떻게 생각해?`
+        ],
+        '장난스러운': [
+          `헤헤~ 재밌다! 또 말해봐~`,
+          `우와아~ 나 완전 관심 생겼어! ${char.likes} 이야기 더 해줘!`,
+          `히히, 너는 정말 재미있어. 나랑 더 놀자!`,
+          `오호~ 비밀인데, 나도 그런 생각 한 적 있어.`,
+          `완전 귀여운 이야기네~ 또 해줘!`
+        ],
+        '차분한': [
+          `흥미로운 말씀이네요. 천천히 들려주세요.`,
+          `저도 공감이 갑니다. ${char.hobby}을 할 때 비슷한 감정을 느낍니다.`,
+          `오늘도 평온한 하루를 보내고 있습니다. 당신은 어떠신가요?`,
+          `그렇군요. 조금 더 자세히 말씀해 주시면 좋겠습니다.`,
+          `조용히 듣고 있었습니다. 당신의 생각이 궁금합니다.`
+        ]
+      };
+      const pool = templates[speech] || templates['존댓말'];
+      reply = pool[Math.floor(Math.random() * pool.length)];
+
+      // 감정 살짝 반영
+      if (lower.includes('슬프') || lower.includes('우울') || lower.includes('힘들')) {
+        expr = '생각';
+        reply = speech === '반말' ? `힘들었구나... 내가 옆에 있어줄게.` : `많이 힘드셨군요. 제가 옆에 있을게요.`;
+      } else if (lower.includes('기뻐') || lower.includes('신나') || lower.includes('좋아')) {
+        expr = '기쁨';
+      }
+
+      return { text: reply, expr };
+    }
+
+    function interCharTalk(world) {
+      if (world.characters.length < 2) return;
+      const [a, b] = [...world.characters].sort(() => Math.random() - 0.5).slice(0, 2);
+      const lines = [
+        { from: a, text: speechLine(a, `오늘 ${a.hobby} 했어. 너는?`), expr: '미소' },
+        { from: b, text: speechLine(b, `나는 ${b.job} 일 하다가 ${b.likes} 생각 중이야.`), expr: '생각' }
+      ];
+      lines.forEach((l, i) => {
+        setTimeout(() => {
+          world.messages.push({
+            id: uid(), type: 'ai', charId: l.from.id, text: l.text, expr: l.expr, time: Date.now()
+          });
+          save();
+          renderChat();
+        }, i * 700);
+      });
+    }
+    function speechLine(char, content) {
+      if (char.speech === '존댓말') return content.replace(/했어/, '했어요').replace(/이야/, '이에요').replace(/야\./, '요.');
+      return content;
+    }
+
+    // ========== 하루 기록 ==========
+    function generateDayLogsIfNeeded(world) {
+      const now = Date.now();
+      const last = world.lastAccess || world.created;
+      const days = Math.floor((now - last) / (24 * 60 * 60 * 1000));
+      if (days < 1 || world.characters.length === 0) return;
+      const activities = ['공부했어요', '취미 활동을 했어요', '산책했어요', '다른 친구와 대화했어요', '목표를 향해 노력했어요', '조용히 생각을 정리했어요'];
+      for (let d = 0; d < Math.min(days, 3); d++) {
+        const date = new Date(last + (d + 1) * 86400000);
+        const dateStr = `${date.getMonth() + 1}월 ${date.getDate()}일`;
+        const summaries = world.characters.map(c => {
+          const act = activities[Math.floor(Math.random() * activities.length)];
+          return `${c.emoji} ${c.name}: ${act} (기분: ${['평온', '기쁨', '생각 중'][Math.floor(Math.random()*3)]})`;
+        });
+        world.dayLogs = world.dayLogs || [];
+        world.dayLogs.push({
+          date: dateStr,
+          summary: summaries.join(' / ')
+        });
+        // 기억 하나 추가
+        if (Math.random() < 0.5) {
+          world.memories.push({ key: '하루기록', value: `${dateStr}에 사용자 생각을 함`, time: date.getTime() });
+        }
+      }
+    }
+    function showDayLog() {
+      const world = getWorld();
+      if (!world || !world.dayLogs || world.dayLogs.length === 0) {
+        alert('아직 하루 기록이 없어요. 하루 정도 접속하지 않으면 AI들이 생활을 기록해요!');
+        return;
+      }
+      const text = world.dayLogs.map(l => `📅 ${l.date}\n${l.summary}`).join('\n\n');
+      alert('AI들의 하루 기록\n\n' + text);
+    }
+
+    // ========== 유틸 ==========
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    }
+
+    // 입력창 Enter
+    document.getElementById('user-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // 시작
+    load();
+    renderWorlds();
+  </script>
+</body>
+</html>
