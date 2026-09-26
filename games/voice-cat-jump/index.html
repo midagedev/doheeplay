@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>목소리 고양이: 별까지</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0b1026; touch-action:none; }
+  body { font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+  #game { position:fixed; inset:0; display:block; }
+  .overlay {
+    position:fixed; inset:0; z-index:10;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:#fff; padding:24px;
+    background:radial-gradient(ellipse at 50% 30%, #1b2450 0%, #0b1026 70%);
+  }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(26px,7vw,44px); margin-bottom:10px; letter-spacing:-1px; }
+  .sub { font-size:clamp(14px,3.8vw,18px); color:#c8d2f0; line-height:1.7; margin-bottom:24px; }
+  .btn {
+    font-size:clamp(18px,5vw,22px); font-weight:bold; color:#0b1026;
+    background:#ffd76e; border:none; border-radius:16px;
+    padding:16px 40px; cursor:pointer; box-shadow:0 4px 0 #c9a43e;
+  }
+  .btn:active { transform:translateY(3px); box-shadow:0 1px 0 #c9a43e; }
+  .note { font-size:13px; color:#8a94b8; margin-top:18px; line-height:1.6; }
+  .mic-status { font-size:15px; margin-top:14px; color:#9fe8b8; }
+  .mic-status.fail { color:#f2a6a6; }
+  /* 하단 조작 버튼 */
+  #controls {
+    position:fixed; left:0; right:0; bottom:0; z-index:5;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 14px 14px 14px; pointer-events:none;
+  }
+  .ctl {
+    pointer-events:auto; user-select:none; -webkit-user-select:none;
+    width:72px; height:72px; border-radius:50%;
+    background:rgba(255,255,255,0.14); border:2px solid rgba(255,255,255,0.35);
+    color:#fff; font-size:30px; display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(2px);
+  }
+  .ctl:active { background:rgba(255,215,110,0.5); }
+  #btnJump { width:88px; height:88px; font-size:36px; }
+  /* 엔딩 */
+  #ending { background:#070b1c; z-index:20; }
+  #endArt { font-size:clamp(50px,16vw,90px); margin-bottom:26px; }
+  #endText {
+    font-size:clamp(18px,5vw,26px); line-height:2; color:#e8ecff;
+    min-height:5.5em; max-width:560px; text-shadow:0 0 20px rgba(140,160,255,0.4);
+  }
+  #endNext { margin-top:30px; }
+  .fadeIn { animation:fade 1.2s ease both; }
+  @keyframes fade { from{opacity:0} to{opacity:1} }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="controls" class="hidden">
+  <button class="ctl" id="btnL">◀</button>
+  <button class="ctl" id="btnJump">🎤</button>
+  <button class="ctl" id="btnR">▶</button>
+</div>
+
+<div class="overlay" id="title">
+  <h1>🐈 목소리 고양이: 별까지</h1>
+  <p class="sub">
+    고양이가 사라진 친구를 찾아 밤하늘을 올라가요.<br>
+    마이크에 대고 <b>"아——!"</b> 하고 소리 지르면 점프!<br>
+    <b>목소리가 높을수록 더 높이 점프해요.</b>
+  </p>
+  <button class="btn" id="btnStart">마이크 켜고 시작!</button>
+  <p class="mic-status" id="micStatus"></p>
+  <p class="note">
+    마이크가 안 되면 🎤 버튼을 눌러도 점프할 수 있어요.<br>
+    왼쪽·오른쪽 버튼(또는 ← → 키)으로 움직여요.
+  </p>
+</div>
+
+<div class="overlay hidden" id="gameover">
+  <h1>아래로 떨어졌어…</h1>
+  <p class="sub" id="goHeight"></p>
+  <button class="btn" id="btnRetry">다시 하기</button>
+</div>
+
+<div class="overlay hidden" id="ending">
+  <div id="endArt">🌙</div>
+  <p id="endText"></p>
+  <button class="btn hidden" id="endNext">계속</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ---------- 기본 설정 ----------
+var canvas = document.getElementById('game');
+var ctx = canvas.getContext('2d');
+var W = window.innerWidth, H = window.innerHeight;
+var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', function(){ resize(); genPlatforms(); });
+
+var GRAV = 1500;          // 중력 px/s^2
+var MOVE = 1400;          // 좌우 가속
+var FRICTION = 0.86;
+var GOAL_Y = -6500;       // 꼭대기(월드 좌표)
+var state = 'title';      // title | playing | dead | ending
+
+// ---------- 고양이 ----------
+var cat = { x: W/2, y: 0, vx: 0, vy: 0, r: 20, grounded: true, squash: 0, face: 1 };
+
+// ---------- 발판 ----------
+var platforms = [];
+var nextPlatY = 0;
+function addPlatform(y){
+  var prev = platforms[platforms.length - 1];
+  var px = prev ? prev.x : W/2 - 45;
+  var x = px + (Math.random()*2 - 1) * 110;
+  x = Math.max(10, Math.min(W - 100, x));
+  var w = 90;
+  if (y <= GOAL_Y + 10) { x = W/2 - 70; w = 140; } // 꼭대기 달 발판
+  platforms.push({ x: x, y: y, w: w, top: true });
+}
+function genPlatforms(){
+  while (nextPlatY > cam.y - H) {
+    var gap = 80 + Math.random() * 150;
+    nextPlatY -= gap;
+    addPlatform(nextPlatY);
+  }
+  // 화면 아래 발판 치우기
+  while (platforms.length > 2 && platforms[1].y > cam.y + H + 60) platforms.shift();
+}
+
+// ---------- 카메라 / 별 ----------
+var cam = { y: 0 };
+var stars = [];
+for (var i = 0; i < 90; i++) {
+  stars.push({ x: Math.random(), y: Math.random(), s: Math.random()*1.6+0.4, tw: Math.random()*6.28 });
+}
+
+function altitude(){ return Math.max(0, Math.floor(-cat.y / 10)); }
+
+// ---------- 마이크 / 피치 ----------
+var audioCtx = null, analyser = null, micStream = null;
+var freqData = null, timeBuf = null;
+var micOK = false;
+var curPitch = 0, pitchSmoothed = 0, micLevel = 0;
+
+async function initMic(){
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+    var src = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    timeBuf = new Float32Array(analyser.fftSize);
+    micOK = true;
+    return true;
+  } catch (e) {
+    micOK = false;
+    return false;
+  }
+}
+
+// 자기상관 피치 검출 (Chris Wilson ACF2+ 방식)
+function autoCorrelate(buf, sampleRate){
+  var SIZE = buf.length;
+  var rms = 0;
+  for (var i = 0; i < SIZE; i++) rms += buf[i]*buf[i];
+  rms = Math.sqrt(rms/SIZE);
+  micLevel = rms;
+  if (rms < 0.015) return -1;
+
+  var r1 = 0, r2 = SIZE-1, thres = 0.2;
+  for (var i = 0; i < SIZE/2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  for (var i = 1; i < SIZE/2; i++) if (Math.abs(buf[SIZE-i]) < thres) { r2 = SIZE-i; break; }
+  buf = buf.slice(r1, r2);
+  SIZE = buf.length;
+
+  var c = new Array(SIZE).fill(0);
+  for (var i = 0; i < SIZE; i++)
+    for (var j = 0; j < SIZE-i; j++) c[i] += buf[j]*buf[j+i];
+  var d = 0; while (c[d] > c[d+1]) d++;
+  var maxval = -1, maxpos = -1;
+  for (var i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+  var T0 = maxpos;
+  if (T0 <= 0) return -1;
+  return sampleRate / T0;
+}
+
+function pitchToJumpVel(f){
+  var t = (f - 120) / (880 - 120);
+  t = Math.max(0, Math.min(1, t));
+  return 480 + t * 430; // 480 ~ 910 px/s
+}
+
+// ---------- 점프 사운드 ----------
+function beep(freq, dur, vol){
+  if (!audioCtx) return;
+  try {
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e){}
+}
+
+// ---------- 입력 ----------
+var keyL = false, keyR = false;
+var touchL = false, touchR = false;
+document.addEventListener('keydown', function(e){
+  if (e.key === 'ArrowLeft') keyL = true;
+  if (e.key === 'ArrowRight') keyR = true;
+  if (e.code === 'Space') { e.preventDefault(); tapJump(); }
+});
+document.addEventListener('keyup', function(e){
+  if (e.key === 'ArrowLeft') keyL = false;
+  if (e.key === 'ArrowRight') keyR = false;
+});
+function bindHold(el, set){
+  var on = function(e){ e.preventDefault(); set(true); };
+  var off = function(e){ e.preventDefault(); set(false); };
+  el.addEventListener('touchstart', on, {passive:false});
+  el.addEventListener('touchend', off);
+  el.addEventListener('touchcancel', off);
+  el.addEventListener('mousedown', on);
+  el.addEventListener('mouseup', off);
+  el.addEventListener('mouseleave', off);
+}
+bindHold(document.getElementById('btnL'), function(v){ touchL = v; });
+bindHold(document.getElementById('btnR'), function(v){ touchR = v; });
+document.getElementById('btnJump').addEventListener('touchstart', function(e){ e.preventDefault(); tapJump(); }, {passive:false});
+document.getElementById('btnJump').addEventListener('mousedown', function(e){ e.preventDefault(); tapJump(); });
+
+function tapJump(){
+  if (state !== 'playing') return;
+  if (cat.grounded) doJump(650); // 버튼 점프: 중간 높이
+}
+function doJump(vel){
+  cat.vy = -vel;
+  cat.grounded = false;
+  cat.squash = 1;
+  beep(300 + vel*0.4, 0.15, 0.12);
+}
+
+// ---------- 게임 루프 ----------
+var lastT = 0;
+function frame(t){
+  var dt = Math.min((t - lastT)/1000, 0.033);
+  lastT = t;
+  if (state === 'playing') update(dt);
+  draw(t/1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function update(dt){
+  // 피치 측정
+  curPitch = -1;
+  if (micOK && analyser) {
+    analyser.getFloatTimeDomainData(timeBuf);
+    var f = autoCorrelate(timeBuf, audioCtx.sampleRate);
+    if (f > 80 && f < 1300) {
+      curPitch = f;
+      pitchSmoothed = pitchSmoothed ? pitchSmoothed*0.6 + f*0.4 : f;
+    }
+  }
+  // 목소리로 점프: 소리가 들리는 동안 발판 위에서 자동 점프
+  if (cat.grounded && curPitch > 0) {
+    doJump(pitchToJumpVel(pitchSmoothed));
+  }
+
+  // 좌우 이동
+  var dir = 0;
+  if (keyL || touchL) dir -= 1;
+  if (keyR || touchR) dir += 1;
+  cat.vx += dir * MOVE * dt;
+  cat.vx *= FRICTION;
+  cat.x += cat.vx * dt;
+  if (dir !== 0) cat.face = dir;
+  if (cat.x < cat.r) { cat.x = cat.r; cat.vx = 0; }
+  if (cat.x > W - cat.r) { cat.x = W - cat.r; cat.vx = 0; }
+
+  // 상하
+  if (!cat.grounded) {
+    cat.vy += GRAV * dt;
+    cat.y += cat.vy * dt;
+  }
+
+  // 발판 착지 (떨어지는 중에만)
+  if (cat.vy > 0) {
+    for (var i = 0; i < platforms.length; i++) {
+      var p = platforms[i];
+      var prevY = cat.y - cat.vy * dt;
+      if (cat.x > p.x - 6 && cat.x < p.x + p.w + 6 &&
+          prevY + cat.r <= p.y + 14 && cat.y + cat.r >= p.y) {
+        cat.y = p.y - cat.r;
+        cat.vy = 0;
+        cat.grounded = true;
+        cat.squash = 1;
+        break;
+      }
+    }
+  }
+
+  // 카메라: 고양이가 화면 40% 위로 올라가면 따라감
+  var targetCam = cat.y - H * 0.4;
+  if (targetCam < cam.y) cam.y = targetCam;
+  genPlatforms();
+
+  // 엔딩 도달
+  if (cat.y < GOAL_Y) { startEnding(); return; }
+  // 추락
+  if (cat.y > cam.y + H + 80) {
+    state = 'dead';
+    document.getElementById('goHeight').textContent =
+      '별까지 ' + Math.max(0, Math.floor(-GOAL_Y/10) - altitude()) + 'm 남았었는데…';
+    document.getElementById('gameover').classList.remove('hidden');
+    document.getElementById('controls').classList.add('hidden');
+  }
+}
+
+// ---------- 그리기 ----------
+function draw(time){
+  // 하늘 그라데이션 (높이 올라갈수록 어두워짐)
+  var prog = Math.min(1, -cat.y / -GOAL_Y);
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, mix('#1b2450', '#05070f', prog));
+  g.addColorStop(1, mix('#0b1026', '#020308', prog));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // 별 (시차)
+  for (var i = 0; i < stars.length; i++) {
+    var s = stars[i];
+    var sy = ((s.y * H * 2 - cam.y * 0.3) % (H * 2) + H * 2) % (H * 2) - H * 0.5;
+    var a = 0.4 + 0.6 * Math.abs(Math.sin(time * 1.5 + s.tw));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#dfe8ff';
+    ctx.fillRect(s.x * W, sy, s.s, s.s);
+  }
+  ctx.globalAlpha = 1;
+
+  // 달 (높이 올라갈수록 커짐)
+  var moonSize = 30 + prog * 70;
+  var moonY = H * 0.18 - prog * H * 0.1;
+  ctx.fillStyle = '#f5edc8';
+  ctx.beginPath(); ctx.arc(W * 0.78, moonY, moonSize, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.beginPath(); ctx.arc(W * 0.78 - moonSize*0.3, moonY - moonSize*0.2, moonSize*0.22, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(W * 0.78 + moonSize*0.25, moonY + moonSize*0.3, moonSize*0.15, 0, 7); ctx.fill();
+
+  if (state === 'title') { drawPitchMeter(); return; }
+
+  // 발판 (구름)
+  for (var i = 0; i < platforms.length; i++) {
+    var p = platforms[i];
+    var py = p.y - cam.y;
+    if (py < -40 || py > H + 40) continue;
+    if (p.top) {
+      // 꼭대기: 달 조각 발판
+      ctx.fillStyle = '#f5edc8';
+      roundRect(p.x, py - 8, p.w, 20, 10); ctx.fill();
+      ctx.fillStyle = '#d8cfa5';
+      ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('친구가 있던 곳', p.x + p.w/2, py - 16);
+    } else {
+      ctx.fillStyle = 'rgba(220,230,255,0.9)';
+      roundRect(p.x, py, p.w, 14, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      roundRect(p.x + 10, py - 5, p.w - 20, 8, 4); ctx.fill();
+    }
+  }
+
+  drawCat(time);
+  drawHUD();
+  drawPitchMeter();
+}
+
+function drawCat(time){
+  var y = cat.y - cam.y;
+  var sq = cat.squash;
+  var rx = cat.r * (1 + sq * 0.25), ry = cat.r * (1 - sq * 0.2);
+  var x = cat.x;
+  ctx.save();
+  ctx.translate(x, y);
+  // 꼬리
+  ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  var tw = Math.sin(time * 6) * 6;
+  ctx.moveTo(-rx*0.6, ry*0.4);
+  ctx.quadraticCurveTo(-rx*1.6, ry*0.2 + tw, -rx*1.4, -ry*0.8 + tw);
+  ctx.stroke();
+  // 몸
+  ctx.fillStyle = '#f4f4f4';
+  ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 7); ctx.fill();
+  // 귀
+  ctx.beginPath();
+  ctx.moveTo(-rx*0.7, -ry*0.6); ctx.lineTo(-rx*0.45, -ry*1.35); ctx.lineTo(-rx*0.1, -ry*0.8);
+  ctx.moveTo(rx*0.1, -ry*0.8); ctx.lineTo(rx*0.45, -ry*1.35); ctx.lineTo(rx*0.7, -ry*0.6);
+  ctx.fill();
+  ctx.fillStyle = '#ffb7c5';
+  ctx.beginPath();
+  ctx.moveTo(-rx*0.55, -ry*0.7); ctx.lineTo(-rx*0.42, -ry*1.1); ctx.lineTo(-rx*0.25, -ry*0.78);
+  ctx.fill();
+  // 눈, 코
+  ctx.fillStyle = '#2b2b3a';
+  var blink = (Math.sin(time*0.7) > 0.97) ? 0.15 : 1;
+  ctx.beginPath(); ctx.ellipse(-rx*0.32, -ry*0.1, 2.6, 4*blink, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(rx*0.32, -ry*0.1, 2.6, 4*blink, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffb7c5';
+  ctx.beginPath(); ctx.arc(0, ry*0.18, 2.6, 0, 7); ctx.fill();
+  // 수염
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-rx*0.5, ry*0.15); ctx.lineTo(-rx*1.1, ry*0.05);
+  ctx.moveTo(-rx*0.5, ry*0.3); ctx.lineTo(-rx*1.05, ry*0.35);
+  ctx.moveTo(rx*0.5, ry*0.15); ctx.lineTo(rx*1.1, ry*0.05);
+  ctx.moveTo(rx*0.5, ry*0.3); ctx.lineTo(rx*1.05, ry*0.35);
+  ctx.stroke();
+  ctx.restore();
+  cat.squash = Math.max(0, cat.squash - 0.08);
+}
+
+function drawHUD(){
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('⭐ ' + altitude() + 'm', 14, 30);
+  var remain = Math.max(0, Math.floor(-GOAL_Y/10) - altitude());
+  ctx.font = '14px sans-serif';
+  ctx.fillStyle = '#aab4d8';
+  ctx.fillText('별까지 ' + remain + 'm', 14, 52);
+}
+
+// 목소리 높이 미터 (오른쪽 세로 막대)
+function drawPitchMeter(){
+  if (!micOK || state === 'dead' || state === 'ending') return;
+  var mx = W - 26, my0 = H * 0.25, mh = H * 0.4;
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  roundRect(mx - 8, my0, 16, mh, 8); ctx.fill();
+  if (curPitch > 0) {
+    var t = Math.max(0, Math.min(1, (pitchSmoothed - 120) / 760));
+    var bh = Math.max(10, t * mh);
+    var grd = ctx.createLinearGradient(0, my0 + mh, 0, my0);
+    grd.addColorStop(0, '#7fd4ff'); grd.addColorStop(1, '#ffd76e');
+    ctx.fillStyle = grd;
+    roundRect(mx - 8, my0 + mh - bh, 16, bh, 8); ctx.fill();
+  }
+  ctx.fillStyle = '#aab4d8';
+  ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('높음', mx, my0 - 8);
+  ctx.fillText('낮음', mx, my0 + mh + 14);
+}
+
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function mix(a, b, t){
+  var pa = parseInt(a.slice(1),16), pb = parseInt(b.slice(1),16);
+  var r = Math.round((pa>>16) + (((pb>>16) - (pa>>16)) * t));
+  var gg = Math.round(((pa>>8)&255) + ((((pb>>8)&255) - ((pa>>8)&255)) * t));
+  var bl = Math.round((pa&255) + (((pb&255) - (pa&255)) * t));
+  return 'rgb(' + r + ',' + gg + ',' + bl + ')';
+}
+
+// ---------- 엔딩 ----------
+var endLines = [
+  '드디어 꼭대기…\n달이 아주 가까이 있어.',
+  '하지만 아무도 없었어.\n구름 위엔 낡은 목걸이 하나만.',
+  '그때 별 하나가 반짝이며 속삭였어.',
+  '"친구는 이제 하늘의 별이 되었단다.\n너의 목소리가 여기까지 닿았구나."',
+  '고양이는 목걸이를 목에 걸고\n조용히 새벽 하늘을 바라봤어.',
+  '슬프지만, 함께 올라온 밤하늘은\n정말 아름다웠어. 🌙',
+  '— 슬픈 엔딩 —'
+];
+var endIdx = 0;
+function startEnding(){
+  state = 'ending';
+  endIdx = 0;
+  document.getElementById('controls').classList.add('hidden');
+  var ov = document.getElementById('ending');
+  ov.classList.remove('hidden');
+  ov.classList.add('fadeIn');
+  showEndLine();
+}
+function showEndLine(){
+  var el = document.getElementById('endText');
+  el.classList.remove('fadeIn');
+  void el.offsetWidth;
+  el.textContent = endLines[endIdx];
+  el.classList.add('fadeIn');
+  var btn = document.getElementById('endNext');
+  btn.textContent = (endIdx < endLines.length - 1) ? '계속' : '다시 하기';
+  btn.classList.remove('hidden');
+}
+document.getElementById('endNext').addEventListener('click', function(){
+  if (endIdx < endLines.length - 1) { endIdx++; showEndLine(); }
+  else resetGame();
+});
+
+// ---------- 시작 / 리셋 ----------
+async function startGame(){
+  var status = document.getElementById('micStatus');
+  status.textContent = '마이크 켜는 중…';
+  var ok = await initMic();
+  status.textContent = ok ? '✓ 마이크 준비 완료! 목소리로 점프해 보자' : '마이크를 못 켰어. 🎤 버튼으로 점프할 수 있어!';
+  status.className = ok ? 'mic-status' : 'mic-status fail';
+  document.getElementById('title').classList.add('hidden');
+  document.getElementById('controls').classList.remove('hidden');
+  resetWorld();
+  state = 'playing';
+}
+function resetWorld(){
+  platforms = [];
+  cam.y = 0;
+  nextPlatY = 0;
+  cat.x = W/2; cat.y = 0; cat.vx = 0; cat.vy = 0;
+  cat.grounded = true; cat.squash = 0;
+  platforms.push({ x: W/2 - 45, y: 0, w: 90 });
+  nextPlatY = -100;
+  genPlatforms();
+  cat.y = -cat.r;
+  // 시작 발판 위에 서 있기
+  for (var i = 0; i < platforms.length; i++) {
+    if (platforms[i].y === 0) { cat.y = -cat.r; break; }
+  }
+}
+function resetGame(){
+  document.getElementById('ending').classList.add('hidden');
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('controls').classList.remove('hidden');
+  resetWorld();
+  state = 'playing';
+}
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnRetry').addEventListener('click', resetGame);
+
+})();
+</script>
+</body>
+</html>

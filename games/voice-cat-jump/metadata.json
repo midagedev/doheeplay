@@ -1,0 +1,7 @@
+{
+  "title": "목소리 고양이: 별까지",
+  "description": "마이크에 대고 소리 지르면 고양이가 점프하고, 목소리가 높을수록 더 높이 뛰어올라 밤하늘 꼭대기의 슬픈 비밀을 만나는 게임.",
+  "createdAt": "2026-09-26",
+  "tags": ["voice", "jump", "cat", "sad-ending"],
+  "controls": ["Voice (higher pitch = higher jump)", "🎤 button", "◀ ▶ / Arrow keys"]
+}
