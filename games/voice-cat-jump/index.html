@@ -25,8 +25,15 @@
   }
   .btn:active { transform:translateY(3px); box-shadow:0 1px 0 #c9a43e; }
   .note { font-size:13px; color:#8a94b8; margin-top:18px; line-height:1.6; }
-  .mic-status { font-size:15px; margin-top:14px; color:#9fe8b8; }
-  .mic-status.fail { color:#f2a6a6; }
+  .field {
+    display:flex; gap:8px; margin-bottom:18px;
+  }
+  .field input {
+    flex:1; max-width:220px; font-size:20px; font-weight:bold; text-align:center;
+    color:#0b1026; background:#fff; border:3px solid #ffd76e; border-radius:14px;
+    padding:12px 10px; outline:none;
+  }
+  .field input::placeholder { color:#b9c0da; font-weight:normal; }
   /* 하단 조작 버튼 */
   #controls {
     position:fixed; left:0; right:0; bottom:0; z-index:5;
@@ -59,22 +66,24 @@
 
 <div id="controls" class="hidden">
   <button class="ctl" id="btnL">◀</button>
-  <button class="ctl" id="btnJump">🎤</button>
+  <button class="ctl" id="btnJump">⬆️</button>
   <button class="ctl" id="btnR">▶</button>
 </div>
 
 <div class="overlay" id="title">
-  <h1>🐈 목소리 고양이: 별까지</h1>
+  <h1>🐈 고양이: 별까지</h1>
   <p class="sub">
     고양이가 사라진 친구를 찾아 밤하늘을 올라가요.<br>
-    마이크에 대고 <b>"아——!"</b> 하고 소리 지르면 점프!<br>
-    <b>목소리가 높을수록 더 높이 점프해요.</b>
-  </p>
-  <button class="btn" id="btnStart">마이크 켜고 시작!</button>
-  <p class="mic-status" id="micStatus"></p>
-  <p class="note">
-    마이크가 안 되면 🎤 버튼을 눌러도 점프할 수 있어요.<br>
+    <b>⬆️ 버튼을 길게 누를수록 더 높이 점프해요!</b><br>
     왼쪽·오른쪽 버튼(또는 ← → 키)으로 움직여요.
+  </p>
+  <div class="field">
+    <input id="nickInput" type="text" maxlength="8" placeholder="닉네임을 적어줘!">
+  </div>
+  <button class="btn" id="btnStart">시작!</button>
+  <p class="note">
+    점프 버튼을 <b>오래 누르고 있으면</b> 힘이 차오르고,<br>
+    손을 떼면 그 힘만큼 점프해요. 스페이스 키도 돼요!
   </p>
 </div>
 
@@ -149,63 +158,14 @@ for (var i = 0; i < 90; i++) {
 
 function altitude(){ return Math.max(0, Math.floor(-cat.y / 10)); }
 
-// ---------- 마이크 / 피치 ----------
-var audioCtx = null, analyser = null, micStream = null;
-var freqData = null, timeBuf = null;
-var micOK = false;
-var curPitch = 0, pitchSmoothed = 0, micLevel = 0;
-
-async function initMic(){
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    await audioCtx.resume();
-    var src = audioCtx.createMediaStreamSource(micStream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    src.connect(analyser);
-    timeBuf = new Float32Array(analyser.fftSize);
-    micOK = true;
-    return true;
-  } catch (e) {
-    micOK = false;
-    return false;
+// ---------- 소리 ----------
+var audioCtx = null;
+function ensureAudio(){
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
   }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
-
-// 자기상관 피치 검출 (Chris Wilson ACF2+ 방식)
-function autoCorrelate(buf, sampleRate){
-  var SIZE = buf.length;
-  var rms = 0;
-  for (var i = 0; i < SIZE; i++) rms += buf[i]*buf[i];
-  rms = Math.sqrt(rms/SIZE);
-  micLevel = rms;
-  if (rms < 0.015) return -1;
-
-  var r1 = 0, r2 = SIZE-1, thres = 0.2;
-  for (var i = 0; i < SIZE/2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
-  for (var i = 1; i < SIZE/2; i++) if (Math.abs(buf[SIZE-i]) < thres) { r2 = SIZE-i; break; }
-  buf = buf.slice(r1, r2);
-  SIZE = buf.length;
-
-  var c = new Array(SIZE).fill(0);
-  for (var i = 0; i < SIZE; i++)
-    for (var j = 0; j < SIZE-i; j++) c[i] += buf[j]*buf[j+i];
-  var d = 0; while (c[d] > c[d+1]) d++;
-  var maxval = -1, maxpos = -1;
-  for (var i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
-  var T0 = maxpos;
-  if (T0 <= 0) return -1;
-  return sampleRate / T0;
-}
-
-function pitchToJumpVel(f){
-  var t = (f - 120) / (880 - 120);
-  t = Math.max(0, Math.min(1, t));
-  return 480 + t * 430; // 480 ~ 910 px/s
-}
-
-// ---------- 점프 사운드 ----------
 function beep(freq, dur, vol){
   if (!audioCtx) return;
   try {
@@ -221,14 +181,19 @@ function beep(freq, dur, vol){
 // ---------- 입력 ----------
 var keyL = false, keyR = false;
 var touchL = false, touchR = false;
+var jumpHeld = false, jumpHoldT = 0;
 document.addEventListener('keydown', function(e){
   if (e.key === 'ArrowLeft') keyL = true;
   if (e.key === 'ArrowRight') keyR = true;
-  if (e.code === 'Space') { e.preventDefault(); tapJump(); }
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'playing' && !jumpHeld) { jumpHeld = true; jumpHoldT = 0; }
+  }
 });
 document.addEventListener('keyup', function(e){
   if (e.key === 'ArrowLeft') keyL = false;
   if (e.key === 'ArrowRight') keyR = false;
+  if (e.code === 'Space' && jumpHeld) { releaseJump(); }
 });
 function bindHold(el, set){
   var on = function(e){ e.preventDefault(); set(true); };
@@ -242,12 +207,21 @@ function bindHold(el, set){
 }
 bindHold(document.getElementById('btnL'), function(v){ touchL = v; });
 bindHold(document.getElementById('btnR'), function(v){ touchR = v; });
-document.getElementById('btnJump').addEventListener('touchstart', function(e){ e.preventDefault(); tapJump(); }, {passive:false});
-document.getElementById('btnJump').addEventListener('mousedown', function(e){ e.preventDefault(); tapJump(); });
-
-function tapJump(){
+// 점프 버튼: 누르고 있으면 힘 충전, 떼면 점프
+bindHold(document.getElementById('btnJump'), function(v){
   if (state !== 'playing') return;
-  if (cat.grounded) doJump(650); // 버튼 점프: 중간 높이
+  if (v) { jumpHeld = true; jumpHoldT = 0; }
+  else if (jumpHeld) releaseJump();
+});
+
+var MAX_HOLD = 0.9; // 최대 충전 시간(초)
+function releaseJump(){
+  jumpHeld = false;
+  if (state !== 'playing' || !cat.grounded) { jumpHoldT = 0; return; }
+  var t = Math.min(jumpHoldT, MAX_HOLD) / MAX_HOLD; // 0~1
+  var vel = 430 + t * 480; // 짧게 누르면 430, 꽉 누르면 910 px/s
+  jumpHoldT = 0;
+  doJump(vel);
 }
 function doJump(vel){
   cat.vy = -vel;
@@ -268,20 +242,8 @@ function frame(t){
 requestAnimationFrame(frame);
 
 function update(dt){
-  // 피치 측정
-  curPitch = -1;
-  if (micOK && analyser) {
-    analyser.getFloatTimeDomainData(timeBuf);
-    var f = autoCorrelate(timeBuf, audioCtx.sampleRate);
-    if (f > 80 && f < 1300) {
-      curPitch = f;
-      pitchSmoothed = pitchSmoothed ? pitchSmoothed*0.6 + f*0.4 : f;
-    }
-  }
-  // 목소리로 점프: 소리가 들리는 동안 발판 위에서 자동 점프
-  if (cat.grounded && curPitch > 0) {
-    doJump(pitchToJumpVel(pitchSmoothed));
-  }
+  // 점프 충전
+  if (jumpHeld && cat.grounded) jumpHoldT += dt;
 
   // 좌우 이동
   var dir = 0;
@@ -446,24 +408,21 @@ function drawHUD(){
   ctx.fillText('별까지 ' + remain + 'm', 14, 52);
 }
 
-// 목소리 높이 미터 (오른쪽 세로 막대)
+// 목소리 높이 미터 대신: 점프 충전 게이지 (고양이 위에 표시)
 function drawPitchMeter(){
-  if (!micOK || state === 'dead' || state === 'ending') return;
-  var mx = W - 26, my0 = H * 0.25, mh = H * 0.4;
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  roundRect(mx - 8, my0, 16, mh, 8); ctx.fill();
-  if (curPitch > 0) {
-    var t = Math.max(0, Math.min(1, (pitchSmoothed - 120) / 760));
-    var bh = Math.max(10, t * mh);
-    var grd = ctx.createLinearGradient(0, my0 + mh, 0, my0);
-    grd.addColorStop(0, '#7fd4ff'); grd.addColorStop(1, '#ffd76e');
-    ctx.fillStyle = grd;
-    roundRect(mx - 8, my0 + mh - bh, 16, bh, 8); ctx.fill();
-  }
-  ctx.fillStyle = '#aab4d8';
-  ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('높음', mx, my0 - 8);
-  ctx.fillText('낮음', mx, my0 + mh + 14);
+  if (state !== 'playing' || !jumpHeld || !cat.grounded) return;
+  var t = Math.min(jumpHoldT, MAX_HOLD) / MAX_HOLD;
+  var y = cat.y - cam.y - cat.r - 34;
+  var w = 60, x = cat.x - w/2;
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  roundRect(x, y, w, 10, 5); ctx.fill();
+  var grd = ctx.createLinearGradient(x, 0, x + w, 0);
+  grd.addColorStop(0, '#7fd4ff'); grd.addColorStop(1, '#ffd76e');
+  ctx.fillStyle = grd;
+  roundRect(x, y, Math.max(8, t * w), 10, 5); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(t >= 1 ? 'MAX!' : '힘 모으는 중…', cat.x, y - 6);
 }
 
 function roundRect(x, y, w, h, r){
@@ -485,19 +444,28 @@ function mix(a, b, t){
 }
 
 // ---------- 엔딩 ----------
-var endLines = [
-  '드디어 꼭대기…\n달이 아주 가까이 있어.',
-  '하지만 아무도 없었어.\n구름 위엔 낡은 목걸이 하나만.',
-  '그때 별 하나가 반짝이며 속삭였어.',
-  '"친구는 이제 하늘의 별이 되었단다.\n너의 목소리가 여기까지 닿았구나."',
-  '고양이는 목걸이를 목에 걸고\n조용히 새벽 하늘을 바라봤어.',
-  '슬프지만, 함께 올라온 밤하늘은\n정말 아름다웠어. 🌙',
-  '— 슬픈 엔딩 —'
-];
+var nick = '고양이';
+function getNick(){
+  var v = document.getElementById('nickInput').value.trim();
+  return v ? v : '고양이';
+}
+function makeEndScenes(){
+  return [
+    { art: '🌙✨\n🐈💛🐈', lines: ['드디어 꼭대기…', '달이 아주 가까이 있어.'] },
+    { art: '💭❓', lines: ['하지만 아무도 없었어…', '순간, 하늘에서 익숙한 목소리가 들려왔어!'] },
+    { art: '🌟💬\n💉➡️⭐', lines: ['"아! ' + nick + '아, 오랜만이네?"', '"그게… 내가 아팠는데, 갑자기 의사 선생님이\n나한테 주사를 놨어."', '"정신이 몽롱해지더니\n이렇게 됬지 모야? ㅎㅎ"'] },
+    { art: '🐈💛🐈\n🌙✨', lines: ['목소리의 주인은 다름 아닌 친구였어!', '친구는 하늘에서 반짝이는 별이 되어', nick + '을(를) 기다리고 있었던 거야.'] },
+    { art: '💞🌙✨\n🐈🌈🌅', lines: ['"이제 내 목소리가 닿을 때마다', '네 곁에 있을게."', nick + '과(와) 친구는 새벽 하늘 아래', '다시 만난 기쁨으로 웃었어.'] },
+    { art: '🌟🐈🌟\n— 해피엔딩 —', lines: ['— 해피엔딩 —'] }
+  ];
+}
+var endScenes = makeEndScenes();
 var endIdx = 0;
 function startEnding(){
   state = 'ending';
   endIdx = 0;
+  nick = getNick();
+  endScenes = makeEndScenes();
   document.getElementById('controls').classList.add('hidden');
   var ov = document.getElementById('ending');
   ov.classList.remove('hidden');
@@ -505,27 +473,38 @@ function startEnding(){
   showEndLine();
 }
 function showEndLine(){
+  var sc = endScenes[endIdx];
   var el = document.getElementById('endText');
   el.classList.remove('fadeIn');
   void el.offsetWidth;
-  el.textContent = endLines[endIdx];
+  el.innerHTML = sc.lines.map(function(l){ return l.replace(/\n/g, '<br>'); }).join('<br>');
   el.classList.add('fadeIn');
+  var art = document.getElementById('endArt');
+  art.classList.remove('fadeIn');
+  void art.offsetWidth;
+  art.innerHTML = sc.art.replace(/\n/g, '<br>');
+  art.classList.add('fadeIn');
   var btn = document.getElementById('endNext');
-  btn.textContent = (endIdx < endLines.length - 1) ? '계속' : '다시 하기';
+  btn.textContent = (endIdx < endScenes.length - 1) ? '계속' : '다시 하기';
   btn.classList.remove('hidden');
 }
 document.getElementById('endNext').addEventListener('click', function(){
-  if (endIdx < endLines.length - 1) { endIdx++; showEndLine(); }
+  if (endIdx < endScenes.length - 1) { endIdx++; showEndLine(); }
   else resetGame();
 });
 
 // ---------- 시작 / 리셋 ----------
-async function startGame(){
-  var status = document.getElementById('micStatus');
-  status.textContent = '마이크 켜는 중…';
-  var ok = await initMic();
-  status.textContent = ok ? '✓ 마이크 준비 완료! 목소리로 점프해 보자' : '마이크를 못 켰어. 🎤 버튼으로 점프할 수 있어!';
-  status.className = ok ? 'mic-status' : 'mic-status fail';
+function startGame(){
+  ensureAudio();
+  var nickVal = document.getElementById('nickInput').value.trim();
+  if (!nickVal) {
+    var inp = document.getElementById('nickInput');
+    inp.focus();
+    inp.placeholder = '닉네임을 적어줘!';
+    return;
+  }
+  nick = nickVal;
+  endScenes = makeEndScenes();
   document.getElementById('title').classList.add('hidden');
   document.getElementById('controls').classList.remove('hidden');
   resetWorld();
