@@ -43,6 +43,10 @@
     transform: translate(-50%, -50%);
     font-size: 26px; line-height: 1;
   }
+  .balloon.gold {
+    background: radial-gradient(circle at 35% 30%, #fff3b0, #ffd166 55%, #f0a92e);
+    box-shadow: inset -8px -10px 0 rgba(200,140,0,.25), 0 0 14px rgba(255,209,102,.9);
+  }
   .pop {
     position: absolute; pointer-events: none;
     font-size: 26px; font-weight: 800; color: #e74c8c;
@@ -93,6 +97,7 @@
     <h1>🎈 풍선 터뜨리기</h1>
     <p>올라오는 풍선을 눌러서 터뜨려!</p>
     <p>⚠️ 검은 해골 풍선은 누르면 점수가 깎여!</p>
+    <p>🌟 황금 풍선은 빨라서 어렵지만 +5점!</p>
     <p>30초 동안 몇 개 터뜨릴 수 있을까?</p>
     <button id="startBtn">시작하기</button>
   </div>
@@ -118,22 +123,26 @@
     var b = document.createElement("div");
     b.className = "balloon";
     var isBomb = Math.random() < 0.18; // 18% 확률로 폭탄 풍선
+    var isGold = !isBomb && Math.random() < 0.1; // 10% 확률로 황금 풍선
     if (isBomb) {
       b.classList.add("bomb");
       var mark = document.createElement("span");
       mark.className = "mark";
       mark.textContent = "💀";
       b.appendChild(mark);
+    } else if (isGold) {
+      b.classList.add("gold");
     }
     var size = 56 + Math.floor(Math.random() * 34); // 56~90px
     b.style.width = size + "px";
     b.style.height = Math.round(size * 1.24) + "px";
-    b.style.background = isBomb ? "" : COLORS[Math.floor(Math.random() * COLORS.length)];
+    b.style.background = (isBomb || isGold) ? "" : COLORS[Math.floor(Math.random() * COLORS.length)];
     b.style.left = Math.floor(Math.random() * Math.max(W() - size, 1)) + "px";
     b.style.top = H() + "px";
     game.appendChild(b);
 
     var speed = 60 + Math.random() * 70 + Math.min(score * 1.2, 50); // px/s, 점수 오르면 조금 빨라짐
+    if (isGold) speed = 190 + Math.random() * 50 + Math.min(score * 1.2, 50); // 황금 풍선은 훨씬 빠름
     var drift = (Math.random() - 0.5) * 40; // 좌우 살랑살랑
     var phase = Math.random() * Math.PI * 2;
     var startT = null, baseLeft = parseFloat(b.style.left);
@@ -161,6 +170,9 @@
         score = Math.max(0, score - 2);
         p.classList.add("bad");
         p.textContent = "깎였어! -2";
+      } else if (isGold) {
+        score += 5;
+        p.textContent = "🌟 황금! +5";
       } else {
         score++;
         p.textContent = "펑! +1";
