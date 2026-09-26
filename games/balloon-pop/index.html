@@ -34,12 +34,22 @@
     transform: translateX(-50%);
     width: 2px; height: 16px; background: rgba(80,80,80,.5);
   }
+  .balloon.bomb {
+    background: #3d3d52;
+    box-shadow: inset -8px -10px 0 rgba(0,0,0,.25);
+  }
+  .balloon.bomb .mark {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 26px; line-height: 1;
+  }
   .pop {
     position: absolute; pointer-events: none;
     font-size: 26px; font-weight: 800; color: #e74c8c;
     animation: flyup .6s ease-out forwards;
     text-shadow: 0 1px 2px #fff;
   }
+  .pop.bad { color: #555; }
   @keyframes flyup {
     from { opacity: 1; transform: translateY(0); }
     to   { opacity: 0; transform: translateY(-40px); }
@@ -82,6 +92,7 @@
   <div id="overlay">
     <h1>🎈 풍선 터뜨리기</h1>
     <p>올라오는 풍선을 눌러서 터뜨려!</p>
+    <p>⚠️ 검은 해골 풍선은 누르면 점수가 깎여!</p>
     <p>30초 동안 몇 개 터뜨릴 수 있을까?</p>
     <button id="startBtn">시작하기</button>
   </div>
@@ -106,10 +117,18 @@
   function spawn() {
     var b = document.createElement("div");
     b.className = "balloon";
+    var isBomb = Math.random() < 0.18; // 18% 확률로 폭탄 풍선
+    if (isBomb) {
+      b.classList.add("bomb");
+      var mark = document.createElement("span");
+      mark.className = "mark";
+      mark.textContent = "💀";
+      b.appendChild(mark);
+    }
     var size = 56 + Math.floor(Math.random() * 34); // 56~90px
     b.style.width = size + "px";
     b.style.height = Math.round(size * 1.24) + "px";
-    b.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+    b.style.background = isBomb ? "" : COLORS[Math.floor(Math.random() * COLORS.length)];
     b.style.left = Math.floor(Math.random() * Math.max(W() - size, 1)) + "px";
     b.style.top = H() + "px";
     game.appendChild(b);
@@ -136,11 +155,17 @@
       if (!running || b._popped) return;
       b._popped = true;
       cancelAnimationFrame(b._raf);
-      score++;
-      scoreBadge.textContent = "🎈 " + score + " 점";
       var p = document.createElement("div");
       p.className = "pop";
-      p.textContent = "펑! +1";
+      if (isBomb) {
+        score = Math.max(0, score - 2);
+        p.classList.add("bad");
+        p.textContent = "깎였어! -2";
+      } else {
+        score++;
+        p.textContent = "펑! +1";
+      }
+      scoreBadge.textContent = "🎈 " + score + " 점";
       p.style.left = b.style.left;
       p.style.top = b.style.top;
       game.appendChild(p);
