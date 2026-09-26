@@ -23,6 +23,11 @@ Do not edit build scripts, GitHub Actions, or site-wide styles unless the human 
 - Keep controls friendly for keyboard and touch.
 - Use visible restart/play controls and avoid text that can overlap on mobile.
 - Run `npm run check` before handing off.
+- Then run `npm run playtest -- <slug>`. It plays the game in headless Chromium at iPhone and iPad sizes and
+  fails on script errors or a blank screen; it warns when tapping changes nothing, the page scrolls sideways,
+  or a button is off-screen or smaller than 40px. Fix every FAIL before pushing, and fix warnings unless the
+  game has a reason (a puzzle that waits for a deliberate tap may legitimately not react to random taps).
+  Screenshots and `report.json` land in `playtest-output/<slug>/` (gitignored).
 
 ## Metadata
 
@@ -52,6 +57,19 @@ Work only under games/<new-slug>/.
 Create metadata.json and index.html.
 No network calls, no external assets, no CDNs.
 Make the game playable by keyboard and touch.
-After creating it, run npm run check and fix any validation errors.
+After creating it, run npm run check and npm run playtest -- <slug>, and fix any errors.
 ```
 
+
+## Skills
+
+`.agents/skills/` holds two skills to load while making a game:
+
+- `game-feel` — juice: screen shake, hit-stop, easing, squash and stretch, layered feedback.
+- `game-ui-ux` — HUD and menu layout that survives phone and tablet screens, safe areas, screen flow.
+
+They come from [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills)
+(Apache-2.0; see `LICENSE-awesome-gamedev-agent-skills` and `NOTICE-awesome-gamedev-agent-skills`), pinned at
+the commit in `.upstream-sha`.
+
+One-time setup on a new machine: `npm install` and `npx playwright install chromium`.
