@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>풍선 터뜨리기</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; touch-action: manipulation; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+    background: linear-gradient(#aee3ff 0%, #d8f3ff 55%, #fff3c9 100%);
+    user-select: none;
+  }
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; z-index: 10;
+  }
+  .badge {
+    background: rgba(255,255,255,.85); border-radius: 20px;
+    padding: 8px 16px; font-size: 20px; font-weight: 800; color: #345;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  #game { position: fixed; inset: 0; }
+  .balloon {
+    position: absolute; width: 70px; height: 88px;
+    border-radius: 50% 50% 48% 48%;
+    cursor: pointer; will-change: transform, top;
+    box-shadow: inset -8px -10px 0 rgba(0,0,0,.08);
+  }
+  .balloon::after {
+    content: ""; position: absolute; left: 50%; bottom: -14px;
+    transform: translateX(-50%);
+    width: 2px; height: 16px; background: rgba(80,80,80,.5);
+  }
+  .pop {
+    position: absolute; pointer-events: none;
+    font-size: 26px; font-weight: 800; color: #e74c8c;
+    animation: flyup .6s ease-out forwards;
+    text-shadow: 0 1px 2px #fff;
+  }
+  @keyframes flyup {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-40px); }
+  }
+  #overlay {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    background: rgba(255,255,255,.65); backdrop-filter: blur(3px);
+    text-align: center; padding: 24px;
+  }
+  #overlay h1 { font-size: 34px; color: #2b5d8c; margin-bottom: 10px; }
+  #overlay p  { font-size: 19px; color: #456; margin-bottom: 6px; }
+  #overlay .final { font-size: 26px; font-weight: 800; color: #e74c8c; margin-bottom: 22px; }
+  #startBtn {
+    font-size: 24px; font-weight: 800; color: #fff;
+    background: #ff6fa5; border: none; border-radius: 40px;
+    padding: 16px 46px; cursor: pointer;
+    box-shadow: 0 5px 0 #d84f82;
+  }
+  #startBtn:active { transform: translateY(4px); box-shadow: 0 1px 0 #d84f82; }
+  #replayBtn {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 15; display: none;
+    font-size: 20px; font-weight: 800; color: #fff;
+    background: #5ab5ea; border: none; border-radius: 30px;
+    padding: 12px 32px; cursor: pointer;
+    box-shadow: 0 4px 0 #3a95ca;
+  }
+  #replayBtn:active { transform: translate(-50%, 3px); box-shadow: 0 1px 0 #3a95ca; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <div class="badge" id="scoreBadge"> 점수</div>
+    <div class="badge" id="timeBadge">⏱ 30초</div>
+  </div>
+  <div id="game"></div>
+  <button id="replayBtn">🔁 다시 하기</button>
+  <div id="overlay">
+    <h1>🎈 풍선 터뜨리기</h1>
+    <p>올라오는 풍선을 눌러서 터뜨려!</p>
+    <p>30초 동안 몇 개 터뜨릴 수 있을까?</p>
+    <button id="startBtn">시작하기</button>
+  </div>
+
+<script>
+(function () {
+  var game = document.getElementById("game");
+  var scoreBadge = document.getElementById("scoreBadge");
+  var timeBadge = document.getElementById("timeBadge");
+  var overlay = document.getElementById("overlay");
+  var startBtn = document.getElementById("startBtn");
+  var replayBtn = document.getElementById("replayBtn");
+
+  var COLORS = ["#ff6fa5", "#ffd166", "#7ee081", "#7cb8ff", "#c792ea", "#ff9f6e"];
+  var DUR = 30;
+  var score = 0, timeLeft = DUR, running = false;
+  var spawnTimer = null, tickTimer = null;
+
+  function H() { return window.innerHeight; }
+  function W() { return window.innerWidth; }
+
+  function spawn() {
+    var b = document.createElement("div");
+    b.className = "balloon";
+    var size = 56 + Math.floor(Math.random() * 34); // 56~90px
+    b.style.width = size + "px";
+    b.style.height = Math.round(size * 1.24) + "px";
+    b.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+    b.style.left = Math.floor(Math.random() * Math.max(W() - size, 1)) + "px";
+    b.style.top = H() + "px";
+    game.appendChild(b);
+
+    var speed = 60 + Math.random() * 70 + Math.min(score * 1.2, 50); // px/s, 점수 오르면 조금 빨라짐
+    var drift = (Math.random() - 0.5) * 40; // 좌우 살랑살랑
+    var phase = Math.random() * Math.PI * 2;
+    var startT = null, baseLeft = parseFloat(b.style.left);
+
+    function floatUp(t) {
+      if (startT === null) startT = t;
+      var dt = (t - startT) / 1000;
+      var y = H() - dt * speed;
+      var x = baseLeft + Math.sin(phase + dt * 2) * drift;
+      b.style.top = y + "px";
+      b.style.left = x + "px";
+      if (y + b.offsetHeight < 0) { b.remove(); return; }
+      if (running) b._raf = requestAnimationFrame(floatUp);
+    }
+    b._raf = requestAnimationFrame(floatUp);
+
+    b.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (!running || b._popped) return;
+      b._popped = true;
+      cancelAnimationFrame(b._raf);
+      score++;
+      scoreBadge.textContent = "🎈 " + score + " 점";
+      var p = document.createElement("div");
+      p.className = "pop";
+      p.textContent = "펑! +1";
+      p.style.left = b.style.left;
+      p.style.top = b.style.top;
+      game.appendChild(p);
+      setTimeout(function () { p.remove(); }, 600);
+      b.remove();
+    });
+  }
+
+  function startGame() {
+    // 초기화
+    score = 0; timeLeft = DUR; running = true;
+    scoreBadge.textContent = "🎈 0 점";
+    timeBadge.textContent = "⏱ " + DUR + "초";
+    overlay.classList.add("hidden");
+    replayBtn.style.display = "block";
+
+    // 난이도: 시간 지나며 조금씩 자주 등장
+    var elapsed = 0;
+    function loopSpawn() {
+      if (!running) return;
+      spawn();
+      var interval = Math.max(320, 900 - elapsed * 18); // ms
+      spawnTimer = setTimeout(function () { elapsed += interval / 1000; loopSpawn(); }, interval);
+    }
+    loopSpawn();
+
+    tickTimer = setInterval(function () {
+      timeLeft--;
+      timeBadge.textContent = "⏱ " + Math.max(timeLeft, 0) + "초";
+      if (timeLeft <= 5 && timeLeft > 0) timeBadge.style.color = "#e74c8c";
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  function endGame() {
+    running = false;
+    clearTimeout(spawnTimer);
+    clearInterval(tickTimer);
+    timeBadge.style.color = "";
+    // 남은 풍선 정리
+    Array.prototype.forEach.call(game.querySelectorAll(".balloon"), function (b) {
+      cancelAnimationFrame(b._raf); b.remove();
+    });
+    overlay.innerHTML =
+      "<h1>끝났어! 🎈</h1>" +
+      "<p>30초 동안 터뜨린 풍선</p>" +
+      "<div class='final'>" + score + "개</div>" +
+      (score >= 25 ? "<p>와, 풍선 마스터다! 🏆</p>"
+       : score >= 15 ? "<p>정말 잘했어! 👏</p>"
+       : "<p>다시 하면 더 잘할 수 있어!</p>") +
+      "<button id='againBtn'>🔁 다시 하기</button>";
+    overlay.classList.remove("hidden");
+    document.getElementById("againBtn").addEventListener("click", startGame);
+  }
+
+  startBtn.addEventListener("click", startGame);
+  replayBtn.addEventListener("click", startGame);
+})();
+</script>
+</body>
+</html>
