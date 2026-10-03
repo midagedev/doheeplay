@@ -413,93 +413,39 @@ function draw(time){
   }
   ctx.globalAlpha = 1;
 
-  drawIdol(W*0.32, H*0.62, time, W);
+  drawIdolScene(W, H, time);
   if (singMode) drawSingMeter(W, H);
 }
 
-function drawIdol(cx, cy, time, W){
-  var s = Math.min(W*0.28, 150) / 150; // 스케일
-  var bob = Math.abs(Math.sin(avatar.bounce)) * 6 * s;
-  var danceTilt = avatar.dance > 0 ? Math.sin(time*10)*0.12 : 0;
+// 생성한 미쿠 그림으로 무대 장면 그리기
+var idolImg = null, idolReady = false;
+(function(){
+  var img = new Image();
+  img.onload = function(){ idolReady = true; };
+  img.src = 'assets/idol.png';
+  idolImg = img;
+})();
+function drawIdolScene(W, H, time){
   ctx.save();
-  ctx.translate(cx, cy - bob);
-  ctx.rotate(danceTilt);
-  ctx.scale(s, s);
-
-  // 꼬리
-  ctx.strokeStyle = '#f6eefb'; ctx.lineWidth = 12; ctx.lineCap='round';
-  ctx.beginPath();
-  var tw = Math.sin(time*4)*14;
-  ctx.moveTo(30, 40); ctx.quadraticCurveTo(85, 45+tw, 75, -12+tw);
-  ctx.stroke();
-
-  // 몸통 (드레스)
-  ctx.fillStyle = '#ffd1e3';
-  ctx.beginPath();
-  ctx.moveTo(-38, 95); ctx.quadraticCurveTo(0, 40, 38, 95);
-  ctx.quadraticCurveTo(0, 118, -38, 95); ctx.fill();
-  ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.ellipse(0, 58, 34, 36, 0, Math.PI, 0); ctx.fill();
-
-  // 팔 (흔들기)
-  function arm(side, wave){
-    ctx.save();
-    ctx.translate(side*30, 30);
-    ctx.rotate(side * (wave > 0 ? -1.9 + Math.sin(time*12)*0.3 : 0.5));
-    ctx.strokeStyle='#fff'; ctx.lineWidth=13; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,42); ctx.stroke();
-    ctx.restore();
+  if (idolReady && idolImg) {
+    // 커버 비율로 그리기
+    var iw = idolImg.width, ih = idolImg.height;
+    var sc = Math.max(W/iw, H/ih);
+    // 춤출 때 카메라가 살짝 들썩, 노래할 때도bounce
+    var pulse = 1;
+    if (avatar.dance > 0) pulse += 0.02 * Math.sin(time*10);
+    if (singMode) pulse += 0.008 * Math.sin(avatar.bounce*2);
+    sc *= pulse;
+    var dw = iw*sc, dh = ih*sc;
+    var bob = Math.abs(Math.sin(avatar.bounce)) * 3;
+    ctx.translate(W*0.32, H*0.55 - bob);
+    ctx.drawImage(idolImg, -dw/2, -dh/2, dw, dh);
+  } else {
+    // 그림 로딩 중: 분홍 무대 불빛
+    var g2 = ctx.createRadialGradient(W*0.32, H*0.4, 20, W*0.32, H*0.5, H*0.8);
+    g2.addColorStop(0,'rgba(255,214,235,0.5)'); g2.addColorStop(1,'rgba(90,40,110,0.2)');
+    ctx.fillStyle = g2; ctx.fillRect(0,0,W,H);
   }
-  arm(-1, avatar.armWave); arm(1, avatar.armWave);
-
-  // 머리
-  ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.ellipse(0, -18, 46, 42, 0, 0, 7); ctx.fill();
-  // 트윈테일
-  ctx.fillStyle='#8ee7f0';
-  var pw = Math.sin(time*3)*6;
-  [[-1,-30],[1,-30]].forEach(function(p){
-    ctx.beginPath();
-    ctx.ellipse(p[0]*54, 12+pw*p[0], 14, 42, p[0]*0.25, 0, 7); ctx.fill();
-  });
-  // 앞머리
-  ctx.fillStyle='#8ee7f0';
-  ctx.beginPath(); ctx.ellipse(0, -48, 44, 18, 0, Math.PI, 0); ctx.fill();
-  // 귀
-  ctx.fillStyle='#fff';
-  ctx.beginPath();
-  ctx.moveTo(-34,-42); ctx.lineTo(-24,-74); ctx.lineTo(-6,-52);
-  ctx.moveTo(6,-52); ctx.lineTo(24,-74); ctx.lineTo(34,-42); ctx.fill();
-  ctx.fillStyle='#ffb7c5';
-  ctx.beginPath();
-  ctx.moveTo(-27,-48); ctx.lineTo(-22,-64); ctx.lineTo(-13,-52);
-  ctx.moveTo(13,-52); ctx.lineTo(22,-64); ctx.lineTo(27,-48); ctx.fill();
-  // 눈
-  var blink = Math.sin(time*0.9) > 0.98 ? 0.12 : 1;
-  ctx.fillStyle='#3a3450';
-  ctx.beginPath(); ctx.ellipse(-17,-18,4.5,7*blink,0,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(17,-18,4.5,7*blink,0,0,7); ctx.fill();
-  ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(-15.5,-21,1.7,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(18.5,-21,1.7,0,7); ctx.fill();
-  // 볼터치
-  if (avatar.blush > 0 || singEnergy > 0.3) {
-    ctx.globalAlpha = Math.max(avatar.blush, singEnergy*0.7);
-    ctx.fillStyle='#ffb3c9';
-    ctx.beginPath(); ctx.ellipse(-27,-6,7,4,0,0,7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(27,-6,7,4,0,0,7); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  // 입 (마이크 볼륨으로 높이기)
-  var mo = 3 + avatar.mouth * 12;
-  ctx.fillStyle='#ff8fae';
-  ctx.beginPath(); ctx.ellipse(0, 0, 6, mo, 0, 0, 7); ctx.fill();
-  // 마이크
-  ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(-8, 52); ctx.lineTo(16, 36); ctx.stroke();
-  ctx.fillStyle='#ffd76e';
-  ctx.beginPath(); ctx.arc(20, 33, 9, 0, 7); ctx.fill();
-
   ctx.restore();
 }
 
