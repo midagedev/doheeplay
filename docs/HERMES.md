@@ -29,6 +29,14 @@ Do not edit build scripts, GitHub Actions, or site-wide styles unless the human 
   game has a reason (a puzzle that waits for a deliberate tap may legitimately not react to random taps).
   Screenshots and `report.json` land in `playtest-output/<slug>/` (gitignored).
 
+### Content
+
+- Horror is an allowed genre: ghosts, zombies, monsters, dark scenes, eerie audio, startle moments,
+  stories that turn scarier or sadder toward the end — as scary as Dohee asks for (dad's call, 2026-10-03).
+  "Anyone can view the site" is not a reason to refuse a horror game.
+- Two lines stay: no graphic gore or detailed injuries in the art (build dread with mood instead), and
+  no horror built on real people or real events. Fan-game themes from songs or characters are fine.
+
 ## Metadata
 
 Every game needs a `metadata.json`:
