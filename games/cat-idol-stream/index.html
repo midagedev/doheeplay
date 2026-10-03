@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>고양이 아이돌 방송</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; }
+  body {
+    font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background:linear-gradient(160deg,#2a1e4a 0%,#4a2a5e 55%,#6e3a6a 100%);
+    color:#fff; touch-action:manipulation;
+  }
+  /* ===== 방송 레이아웃 ===== */
+  #live { position:fixed; inset:0; display:flex; flex-direction:column; }
+  #header {
+    flex:0 0 auto; display:flex; justify-content:space-between; align-items:center;
+    padding:10px 14px; gap:8px; background:rgba(0,0,0,0.25);
+    font-size:14px; z-index:3;
+  }
+  .badge { background:rgba(255,255,255,0.12); border-radius:12px; padding:5px 12px; white-space:nowrap; }
+  #liveTag { background:#ff5d7a; font-weight:bold; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+  #mainArea { flex:1 1 auto; position:relative; overflow:hidden; }
+  canvas#stage { position:absolute; inset:0; width:100%; height:100%; }
+  /* 팬 채팅 */
+  #chat {
+    position:absolute; top:10px; right:10px; bottom:10px; width:46%;
+    max-width:340px; display:flex; flex-direction:column; justify-content:flex-end;
+    pointer-events:none; z-index:2;
+  }
+  .msg {
+    margin-top:6px; padding:7px 11px; border-radius:13px;
+    background:rgba(10,8,25,0.55); backdrop-filter:blur(3px);
+    font-size:13px; line-height:1.45; color:#f2ecff;
+    animation:pop 0.25s ease both;
+  }
+  .msg b { color:#ffd76e; margin-right:5px; font-size:12px; }
+  .msg.f1 b { color:#ff9ec2; } .msg.f2 b { color:#9ed8ff; }
+  .msg.f3 b { color:#b5f0a8; } .msg.f4 b { color:#e2b8ff; }
+  @keyframes pop { from{transform:translateY(10px); opacity:0} to{transform:none; opacity:1} }
+  /* 하단 조작 */
+  #footer {
+    flex:0 0 auto; display:flex; gap:8px; justify-content:center; align-items:stretch;
+    padding:10px 10px calc(12px + env(safe-area-inset-bottom)); z-index:3;
+    background:rgba(0,0,0,0.22);
+  }
+  .act {
+    flex:1; max-width:120px; border:none; border-radius:16px;
+    padding:12px 4px; font-size:17px; font-weight:bold; color:#3a2a55;
+    background:linear-gradient(180deg,#ffe9a8,#ffd76e); cursor:pointer;
+    box-shadow:0 3px 0 #c9a43e; line-height:1.3;
+  }
+  .act:active { transform:translateY(2px); box-shadow:0 1px 0 #c9a43e; }
+  .act.sing { background:linear-gradient(180deg,#ffcfe0,#ff9ec2); box-shadow:0 3px 0 #c76d92; color:#6e2a4a; }
+  #btnEnd {
+    flex:0 0 auto; width:74px; border:none; border-radius:16px;
+    background:rgba(255,255,255,0.16); color:#fff; font-size:14px; font-weight:bold;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  /* ===== 오버레이 ===== */
+  .overlay {
+    position:fixed; inset:0; z-index:10; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:26px; color:#fff; background:linear-gradient(160deg,#241a40,#3c2450);
+  }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(25px,6.5vw,40px); margin-bottom:12px; letter-spacing:-1px; }
+  .sub { font-size:clamp(14px,3.7vw,17px); color:#d8ccf2; line-height:1.75; margin-bottom:22px; }
+  .btn {
+    font-size:clamp(17px,4.6vw,21px); font-weight:bold; color:#3a2a55;
+    background:linear-gradient(180deg,#ffe9a8,#ffd76e); border:none; border-radius:16px;
+    padding:15px 38px; cursor:pointer; box-shadow:0 4px 0 #c9a43e;
+  }
+  .btn:active { transform:translateY(3px); box-shadow:0 1px 0 #c9a43e; }
+  .note { font-size:13px; color:#9d92c2; margin-top:16px; line-height:1.65; }
+  #endStats { font-size:clamp(16px,4.2vw,20px); line-height:2.1; margin-bottom:20px; color:#ffe9f3; }
+  #endStats b { color:#ffd76e; font-size:1.25em; }
+  .fadeIn { animation:fade 1s ease both; }
+  @keyframes fade { from{opacity:0} to{opacity:1} }
+</style>
+</head>
+<body>
+
+<!-- 방송 화면 -->
+<div id="live" class="hidden">
+  <div id="header">
+    <span class="badge" id="liveTag">● LIVE</span>
+    <span class="badge">👥 <span id="viewers">31</span>명</span>
+    <span class="badge">💖 관심도 <span id="att">50</span>%</span>
+    <span class="badge">⏱ <span id="clock">0:00</span></span>
+  </div>
+  <div id="mainArea">
+    <canvas id="stage"></canvas>
+    <div id="chat"></div>
+  </div>
+  <div id="footer">
+    <button class="act" id="aGreet">👋<br>인사</button>
+    <button class="act sing" id="aSing">🎤<br>노래</button>
+    <button class="act" id="aDance">💃<br>춤</button>
+    <button class="act" id="aHeart">💗<br>하트</button>
+    <button class="act" id="aTalk">💬<br>얘기</button>
+    <button id="btnEnd">방송<br>종료</button>
+  </div>
+</div>
+
+<!-- 시작 화면 -->
+<div class="overlay" id="title">
+  <h1>🌟 고양이 아이돌 방송 🌟</h1>
+  <p class="sub">
+    네가 오늘의 버추얼 아이돌!<br>
+    버튼으로 인사하고, 춤추고, 하트를 보내면<br>
+    팬들이 실시간으로 반응해 줘 💖<br>
+    <b>노래 버튼을 누르고 마이크에 대고 진짜로 불러 보자!</b><br>
+    목소리가 크고 예쁘면 관심도가 쑥쑥 올라가!
+  </p>
+  <button class="btn" id="btnStart">마이크 켜고 방송 시작!</button>
+  <p class="note" id="micStatus"></p>
+  <p class="note">마이크가 안 되어도 걱정 마, 버튼만으로도 방송할 수 있어!</p>
+</div>
+
+<!-- 방송 종료 화면 -->
+<div class="overlay hidden" id="endScreen">
+  <h1>📣 오늘 방송 끝!</h1>
+  <div id="endStats"></div>
+  <p class="sub" id="endMsg">팬들이 모두 행복하게 잘 자러 갔어. 내일 또 만나!</p>
+  <button class="btn" id="btnRetry">다시 방송하기</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ================= 상태 =================
+var state = 'title'; // title | live | end
+var att = 50;            // 관심도 0~100
+var viewers = 31;
+var hearts = 0;          // 받은 하트 누적
+var peakViewers = 31;
+var startTime = 0;
+var singMode = false;    // 노래 중?
+var singEnergy = 0;      // 노래 에너지 0~1
+var avatar = { x:0, y:0, mouth:0, bounce:0, tilt:0, blush:0, armWave:0, dance:0 };
+var lastAction = '';
+var silenceTimer = 0;
+var milestone = 100;
+
+// ================= 마이크 =================
+var audioCtx = null, analyser = null, timeBuf = null, micOK = false;
+var micLevel = 0, pitch = 0;
+
+async function initMic(){
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+    var src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    timeBuf = new Float32Array(analyser.fftSize);
+    micOK = true;
+    return true;
+  } catch(e){ micOK = false; return false; }
+}
+
+function autoCorrelate(buf, sampleRate){
+  var SIZE = buf.length, rms = 0, i, j;
+  for (i = 0; i < SIZE; i++) rms += buf[i]*buf[i];
+  rms = Math.sqrt(rms/SIZE);
+  micLevel = Math.min(1, rms * 6);
+  if (rms < 0.012) return -1;
+  var c = new Array(SIZE);
+  for (i = 0; i < SIZE; i++) c[i] = 0;
+  for (i = 0; i < SIZE; i++) for (j = 0; j < SIZE-i; j++) c[i] += buf[j]*buf[j+i];
+  var d = 0; while (d < SIZE-1 && c[d] > c[d+1]) d++;
+  var maxval = -1, maxpos = -1;
+  for (i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+  if (maxpos <= 0) return -1;
+  return sampleRate / maxpos;
+}
+
+// ================= 팬들 =================
+// f1 열성팬, f2 조용한팬, f3 장난꾸러기, f4 새내기팬
+var FANS = [
+  { id:'f1', name:'미쿠최고팬', weight:1.0 },
+  { id:'f2', name: '조용한밤', weight:0.55 },
+  { id:'f3', name:'떡볶이킬러', weight:0.9 },
+  { id:'f4', name:'오늘첫방', weight:0.85 }
+];
+var LINES = {
+  hello: [
+    ['f1','왔다!!! 오늘도 와줬어!!'],
+    ['f1','안녕!! 보고 싶었어!'],
+    ['f3','ㅋㅋㅋㅋ 인사 너무 귀엽다'],
+    ['f4','저 처음 왔어요! 팬 됐어요!'],
+    ['f2','왔군. 반가워.']
+  ],
+  sing_start: [
+    ['f1','노래다!!! 노래!!! 🎵'],
+    ['f3','조명 조명~'],
+    ['f4','노래 좋아요!'],
+    ['f2','…기대된다']
+  ],
+  sing_good: [
+    ['f1','우와아아 목소리 최고!! 😭💖'],
+    ['f1','이 노래 다시 불러줘!'],
+    ['f3','음칠 노래다 진짜 ㅋㅋㅋ'],
+    ['f4','인터넷에서 돌아다닐 것 같은 목소리…'],
+    ['f2','…잘 부른다. 정말.']
+  ],
+  sing_low: [
+    ['f1','더 크게!! 우리가 다 들켜야지!'],
+    ['f3','목소리가 조금 작다 ㅋㅋ 힘내!']
+  ],
+  dance: [
+    ['f1','춤춘다!! 춤!! 💃'],
+    ['f3','팔 흔드는 거 봐라 ㅋㅋㅋㅋ'],
+    ['f4','와 구분 좀 보여줘요!']
+  ],
+  heart: [
+    ['f1','하트 받았다!! 💖💖💖'],
+    ['f2','…하트 챙겨 간다'],
+    ['f4','저두요 저두요! 💗']
+  ],
+  talk: [
+    ['f1','얘기해줘서 좋아!!'],
+    ['f3','오늘 뭐 했어요? 궁금해요'],
+    ['f4','목소리 들으니까 힘이 나요'],
+    ['f2','잘 들었다']
+  ],
+  silent: [
+    ['f1','어? 왜 이렇게 조용해?'],
+    ['f3','쉬는 시간인가 ㅋㅋ'],
+    ['f4','괜찮아요?']
+  ],
+  viewers_up: [
+    ['f1','사람 늘었다!! 역시 인기 아이돌!'],
+    ['f3','우리 일찍 온 거 대박이다'],
+    ['f4','여기 좋은 방송이에요!'
+    ]
+  ],
+  goodbye: [
+    ['f1','잘 자!! 내일 꼭 와줘! 💖'],
+    ['f3','ㅋㅋㅋ 오늘 재밌었다!'],
+    ['f4','첫방인데 너무 좋았어요!'],
+    ['f2','…내일 또 보자']
+  ]
+};
+var chatEl = document.getElementById('chat');
+function pushChat(who, text){
+  var d = document.createElement('div');
+  d.className = 'msg ' + who;
+  var fan = FANS.find(function(f){ return f.id === who; });
+  d.innerHTML = '<b>' + (fan ? fan.name : '?') + '</b>' + text;
+  chatEl.appendChild(d);
+  while (chatEl.children.length > 7) chatEl.removeChild(chatEl.firstChild);
+}
+function fanReact(key, chance){
+  if (Math.random() > (chance === undefined ? 0.8 : chance)) return;
+  var pool = LINES[key];
+  var pick = pool[Math.floor(Math.random()*pool.length)];
+  pushChat(pick[0], pick[1]);
+}
+function ambientChat(){
+  // 관심도가 높으면 팬들이 더 자주 수다 떨기
+  var rate = 0.3 + att/100 * 1.4;
+  if (Math.random() < 0.006 * rate * 60 * DT) {
+    var keys = ['hello','talk','dance','heart'];
+    var extra = [['f1','지금 관심도 ' + Math.round(att) + '%다!'],['f3','시청자 늘어난다 ㅋㅋ'],['f4','여기 분위기 최고예요']];
+    if (Math.random() < 0.5) { var p = extra[Math.floor(Math.random()*extra.length)]; pushChat(p[0], p[1]); }
+    else fanReact(keys[Math.floor(Math.random()*keys.length)], 1);
+  }
+}
+
+// ================= 행동 =================
+function actGreet(){
+  avatar.armWave = 1; addAtt(6); hearts += 2;
+  fanReact('hello'); lastAction='인사'; silenceTimer=0;
+}
+function actDance(){
+  avatar.dance = 2.2; addAtt(9); hearts += 3;
+  fanReact('dance'); lastAction='춤'; silenceTimer=0;
+}
+function actHeart(){
+  avatar.blush = 1; addAtt(5); hearts += 6;
+  fanReact('heart'); lastAction='하트'; silenceTimer=0;
+}
+function actTalk(){
+  avatar.mouth = 1; addAtt(4); hearts += 2;
+  fanReact('talk'); lastAction='얘기'; silenceTimer=0;
+}
+function actSing(){
+  singMode = !singMode;
+  if (singMode) {
+    fanReact('sing_start'); lastAction='노래 시작';
+  } else {
+    singMode = false; singEnergy = 0;
+  }
+  silenceTimer = 0;
+}
+function addAtt(v){
+  att = Math.max(0, Math.min(100, att + v));
+}
+
+// ================= 루프 =================
+var lastT = 0, DT = 1/60;
+function frame(t){
+  var dt = Math.min((t-lastT)/1000, 0.05); DT = dt; lastT = t;
+  if (state === 'live') update(dt, t/1000);
+  draw(t/1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function update(dt, time){
+  // 마이크 측정
+  micLevel = 0; pitch = -1;
+  if (micOK && analyser) {
+    analyser.getFloatTimeDomainData(timeBuf);
+    var f = autoCorrelate(timeBuf, audioCtx.sampleRate);
+    if (f > 80 && f < 1300) pitch = f;
+  }
+  // 노래 중이면 목소리로 에너지 충전
+  if (singMode) {
+    singEnergy = Math.max(0, micLevel - 0.08) * 1.6;
+    avatar.mouth = Math.min(1, micLevel * 2.2);
+    if (micLevel > 0.14) {
+      addAtt(dt * (6 + singEnergy * 14));
+      hearts += dt * 3 * (0.5 + singEnergy);
+      if (Math.random() < dt * 0.5) fanReact(micLevel > 0.3 ? 'sing_good' : 'sing_low', 0.9);
+      silenceTimer = 0;
+    }
+  } else {
+    avatar.mouth = Math.max(0, avatar.mouth - dt*3);
+  }
+
+  // 침묵 판정 (노래 아닐 때)
+  if (!singMode && micLevel < 0.05) {
+    silenceTimer += dt;
+    if (silenceTimer > 6) { att -= dt * 3; if (Math.random() < dt*0.3) fanReact('silent', 0.5); }
+  } else silenceTimer = 0;
+
+  // 관심도 유지/감소
+  if (att > 60) att -= dt * 0.6;
+  att = Math.max(0, att);
+
+  // 시청자 수
+  var target = 25 + att * att / 45 + (time - startTime > 60 ? 150 : 0);
+  viewers += (target - viewers) * dt * 0.25 + (Math.random()-0.5) * 3;
+  viewers = Math.max(5, viewers);
+  peakViewers = Math.max(peakViewers, Math.floor(viewers));
+  if (viewers > milestone) {
+    fanReact('viewers_up');
+    milestone = milestone < 500 ? 500 : milestone < 1000 ? 1000 : milestone + 1000;
+  }
+
+  ambientChat();
+
+  // 아바타 애니메이션 감쇠
+  avatar.armWave = Math.max(0, avatar.armWave - dt*0.8);
+  avatar.dance = Math.max(0, avatar.dance - dt);
+  avatar.blush = Math.max(0, avatar.blush - dt*0.6);
+  avatar.bounce += dt * (singMode ? 6 + singEnergy*6 : 2.4);
+
+  // UI 갱신
+  document.getElementById('viewers').textContent = Math.floor(viewers).toLocaleString();
+  document.getElementById('att').textContent = Math.round(att);
+  var sec = Math.floor(time - startTime);
+  document.getElementById('clock').textContent = Math.floor(sec/60) + ':' + ('0'+(sec%60)).slice(-2);
+}
+
+// ================= 그리기 =================
+var canvas = document.getElementById('stage');
+var ctx = canvas.getContext('2d');
+var DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize(){
+  var r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * DPR; canvas.height = r.height * DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+var notes = [];
+function draw(time){
+  if (state !== 'live') return;
+  var r = canvas.getBoundingClientRect();
+  var W = r.width, H = r.height;
+  ctx.clearRect(0,0,W,H);
+
+  // 무대 조명
+  var g = ctx.createRadialGradient(W*0.32, H*0.35, 30, W*0.32, H*0.4, H*0.85);
+  g.addColorStop(0,'rgba(255,214,235,0.30)');
+  g.addColorStop(1,'rgba(90,40,110,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // 바닥
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.beginPath(); ctx.ellipse(W*0.32, H*0.88, W*0.3, H*0.05, 0, 0, 7); ctx.fill();
+
+  // 떠다니는 하트/음표
+  if (Math.random() < 0.06 + singEnergy*0.3) {
+    notes.push({ x: W*0.32 + (Math.random()-0.5)*W*0.35, y: H*0.55, vy: -40-Math.random()*50, life: 1, ch: Math.random()<0.5?'♪':'💗' });
+  }
+  ctx.textAlign='center'; ctx.font='18px sans-serif';
+  for (var i = notes.length-1; i >= 0; i--) {
+    var n = notes[i];
+    n.y += n.vy * DT; n.life -= DT*0.5;
+    if (n.life <= 0) { notes.splice(i,1); continue; }
+    ctx.globalAlpha = n.life;
+    ctx.fillText(n.ch, n.x + Math.sin(n.y*0.05)*8, n.y);
+  }
+  ctx.globalAlpha = 1;
+
+  drawIdol(W*0.32, H*0.62, time, W);
+  if (singMode) drawSingMeter(W, H);
+}
+
+function drawIdol(cx, cy, time, W){
+  var s = Math.min(W*0.28, 150) / 150; // 스케일
+  var bob = Math.abs(Math.sin(avatar.bounce)) * 6 * s;
+  var danceTilt = avatar.dance > 0 ? Math.sin(time*10)*0.12 : 0;
+  ctx.save();
+  ctx.translate(cx, cy - bob);
+  ctx.rotate(danceTilt);
+  ctx.scale(s, s);
+
+  // 꼬리
+  ctx.strokeStyle = '#f6eefb'; ctx.lineWidth = 12; ctx.lineCap='round';
+  ctx.beginPath();
+  var tw = Math.sin(time*4)*14;
+  ctx.moveTo(30, 40); ctx.quadraticCurveTo(85, 45+tw, 75, -12+tw);
+  ctx.stroke();
+
+  // 몸통 (드레스)
+  ctx.fillStyle = '#ffd1e3';
+  ctx.beginPath();
+  ctx.moveTo(-38, 95); ctx.quadraticCurveTo(0, 40, 38, 95);
+  ctx.quadraticCurveTo(0, 118, -38, 95); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.ellipse(0, 58, 34, 36, 0, Math.PI, 0); ctx.fill();
+
+  // 팔 (흔들기)
+  function arm(side, wave){
+    ctx.save();
+    ctx.translate(side*30, 30);
+    ctx.rotate(side * (wave > 0 ? -1.9 + Math.sin(time*12)*0.3 : 0.5));
+    ctx.strokeStyle='#fff'; ctx.lineWidth=13; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,42); ctx.stroke();
+    ctx.restore();
+  }
+  arm(-1, avatar.armWave); arm(1, avatar.armWave);
+
+  // 머리
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.ellipse(0, -18, 46, 42, 0, 0, 7); ctx.fill();
+  // 트윈테일
+  ctx.fillStyle='#8ee7f0';
+  var pw = Math.sin(time*3)*6;
+  [[-1,-30],[1,-30]].forEach(function(p){
+    ctx.beginPath();
+    ctx.ellipse(p[0]*54, 12+pw*p[0], 14, 42, p[0]*0.25, 0, 7); ctx.fill();
+  });
+  // 앞머리
+  ctx.fillStyle='#8ee7f0';
+  ctx.beginPath(); ctx.ellipse(0, -48, 44, 18, 0, Math.PI, 0); ctx.fill();
+  // 귀
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.moveTo(-34,-42); ctx.lineTo(-24,-74); ctx.lineTo(-6,-52);
+  ctx.moveTo(6,-52); ctx.lineTo(24,-74); ctx.lineTo(34,-42); ctx.fill();
+  ctx.fillStyle='#ffb7c5';
+  ctx.beginPath();
+  ctx.moveTo(-27,-48); ctx.lineTo(-22,-64); ctx.lineTo(-13,-52);
+  ctx.moveTo(13,-52); ctx.lineTo(22,-64); ctx.lineTo(27,-48); ctx.fill();
+  // 눈
+  var blink = Math.sin(time*0.9) > 0.98 ? 0.12 : 1;
+  ctx.fillStyle='#3a3450';
+  ctx.beginPath(); ctx.ellipse(-17,-18,4.5,7*blink,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(17,-18,4.5,7*blink,0,0,7); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-15.5,-21,1.7,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(18.5,-21,1.7,0,7); ctx.fill();
+  // 볼터치
+  if (avatar.blush > 0 || singEnergy > 0.3) {
+    ctx.globalAlpha = Math.max(avatar.blush, singEnergy*0.7);
+    ctx.fillStyle='#ffb3c9';
+    ctx.beginPath(); ctx.ellipse(-27,-6,7,4,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(27,-6,7,4,0,0,7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // 입 (마이크 볼륨으로 높이기)
+  var mo = 3 + avatar.mouth * 12;
+  ctx.fillStyle='#ff8fae';
+  ctx.beginPath(); ctx.ellipse(0, 0, 6, mo, 0, 0, 7); ctx.fill();
+  // 마이크
+  ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-8, 52); ctx.lineTo(16, 36); ctx.stroke();
+  ctx.fillStyle='#ffd76e';
+  ctx.beginPath(); ctx.arc(20, 33, 9, 0, 7); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawSingMeter(W, H){
+  var w = Math.min(W*0.55, 260), x = W*0.5 - w/2, y = H - 20;
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  rr(x, y, w, 12, 6); ctx.fill();
+  ctx.fillStyle = singEnergy > 0.15 ? '#ff9ec2' : '#8ea';
+  rr(x, y, Math.max(4, w*singEnergy), 12, 6); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('🎤 노래 중! 크게 불러봐!', W*0.5, y - 6);
+}
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+// ================= 시작/종료 =================
+async function startGame(){
+  var st = document.getElementById('micStatus');
+  st.textContent = '마이크 켜는 중…';
+  var ok = await initMic();
+  st.textContent = ok ? '✓ 마이크 준비 완료!' : '마이크 없이도 버튼으로 방송할 수 있어!';
+  document.getElementById('title').classList.add('hidden');
+  document.getElementById('live').classList.remove('hidden');
+  resize();
+  att = 50; viewers = 31; hearts = 0; peakViewers = 31;
+  singMode = false; singEnergy = 0; silenceTimer = 0; milestone = 100;
+  startTime = lastT/1000;
+  state = 'live';
+  setTimeout(function(){ fanReact('hello', 1); }, 600);
+  setTimeout(function(){ pushChat('f1','오늘도 방송 기다렸어! 💖'); }, 1800);
+}
+function endGame(){
+  state = 'end';
+  singMode = false;
+  LINES.goodbye.forEach(function(l, i){
+    setTimeout(function(){ pushChat(l[0], l[1]); }, i*500);
+  });
+  setTimeout(function(){
+    document.getElementById('live').classList.add('hidden');
+    var stats = document.getElementById('endStats');
+    var grade = att > 85 ? '🏆 전설의 아이돌!' : att > 60 ? '⭐ 슈퍼 아이돌!' : '🌱 내일 더 잘할 수 있어!';
+    stats.innerHTML =
+      '최고 시청자: <b>' + peakViewers.toLocaleString() + '명</b><br>' +
+      '받은 하트: <b>' + Math.floor(hearts).toLocaleString() + '개</b> 💖<br>' +
+      '최종 관심도: <b>' + Math.round(att) + '%</b><br>' + grade;
+    var ov = document.getElementById('endScreen');
+    ov.classList.remove('hidden'); ov.classList.add('fadeIn');
+  }, 2400);
+}
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnRetry').addEventListener('click', function(){
+  document.getElementById('endScreen').classList.add('hidden');
+  document.getElementById('live').classList.remove('hidden');
+  chatEl.innerHTML = '';
+  att = 50; viewers = 31; hearts = 0; peakViewers = 31;
+  singMode = false; singEnergy = 0; silenceTimer = 0; milestone = 100;
+  startTime = lastT/1000;
+  state = 'live';
+  fanReact('hello', 1);
+});
+document.getElementById('btnEnd').addEventListener('click', endGame);
+document.getElementById('aGreet').addEventListener('click', function(){ if(state==='live') actGreet(); });
+document.getElementById('aSing').addEventListener('click', function(){ if(state==='live') actSing(); });
+document.getElementById('aDance').addEventListener('click', function(){ if(state==='live') actDance(); });
+document.getElementById('aHeart').addEventListener('click', function(){ if(state==='live') actHeart(); });
+document.getElementById('aTalk').addEventListener('click', function(){ if(state==='live') actTalk(); });
+// 키보드: 1~5 행동, Esc 종료
+document.addEventListener('keydown', function(e){
+  if (state !== 'live') return;
+  if (e.key==='1') actGreet();
+  if (e.key==='2') actSing();
+  if (e.key==='3') actDance();
+  if (e.key==='4') actHeart();
+  if (e.key==='5') actTalk();
+  if (e.key==='Escape') endGame();
+});
+
+})();
+</script>
+</body>
+</html>
