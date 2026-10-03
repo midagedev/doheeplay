@@ -9,7 +9,7 @@
   html, body { width:100%; height:100%; overflow:hidden; }
   body {
     font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-    background:linear-gradient(160deg,#2a1e4a 0%,#4a2a5e 55%,#6e3a6a 100%);
+    background:linear-gradient(160deg,#0e2a52 0%,#1a4a72 55%,#2a7a8e 100%);
     color:#fff; touch-action:manipulation;
   }
   /* ===== 방송 레이아웃 ===== */
@@ -63,7 +63,7 @@
   .overlay {
     position:fixed; inset:0; z-index:10; display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center;
-    padding:26px; color:#fff; background:linear-gradient(160deg,#241a40,#3c2450);
+    padding:26px; color:#fff; background:linear-gradient(160deg,#0c2344,#17395e);
   }
   .hidden { display:none !important; }
   h1 { font-size:clamp(25px,6.5vw,40px); margin-bottom:12px; letter-spacing:-1px; }
@@ -108,9 +108,10 @@
 
 <!-- 시작 화면 -->
 <div class="overlay" id="title">
-  <h1>🌟 고양이 아이돌 방송 🌟</h1>
+  <h1>🪼 미쿠 물속 방송 🎤</h1>
   <p class="sub">
-    네가 오늘의 버추얼 아이돌!<br>
+    네가 오늘의 해파리 미쿠!<br>
+    흰 머리, 빨간 눈, 세일러복에 해파리 모자까지 착용 완료!<br>
     버튼으로 인사하고, 춤추고, 하트를 보내면<br>
     팬들이 실시간으로 반응해 줘 💖<br>
     <b>노래 버튼을 누르고 마이크에 대고 진짜로 불러 보자!</b><br>
@@ -441,21 +442,44 @@ function resize(){
 window.addEventListener('resize', resize);
 
 var notes = [];
+var bubbles = [];
 function draw(time){
   if (state !== 'live') return;
   var r = canvas.getBoundingClientRect();
   var W = r.width, H = r.height;
   ctx.clearRect(0,0,W,H);
 
-  // 무대 조명
-  var g = ctx.createRadialGradient(W*0.32, H*0.35, 30, W*0.32, H*0.4, H*0.85);
-  g.addColorStop(0,'rgba(255,214,235,0.30)');
-  g.addColorStop(1,'rgba(90,40,110,0)');
+  // 물속 빛
+  var g = ctx.createRadialGradient(W*0.7, -H*0.1, 20, W*0.5, H*0.6, H*1.1);
+  g.addColorStop(0,'rgba(180,235,255,0.28)');
+  g.addColorStop(1,'rgba(20,60,120,0)');
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  // 위에서 내려오는 빛살
+  ctx.globalAlpha = 0.10 + Math.sin(time*0.8)*0.04;
+  ctx.fillStyle = '#cfeeff';
+  for (var r = 0; r < 3; r++) {
+    ctx.beginPath();
+    var rx = W*0.55 + r*W*0.13;
+    ctx.moveTo(rx, -10); ctx.lineTo(rx + W*0.06, -10);
+    ctx.lineTo(rx - W*0.18 + r*30, H); ctx.lineTo(rx - W*0.3 + r*30, H);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // 발밑 빛
+  ctx.fillStyle = 'rgba(160,230,255,0.08)';
+  ctx.beginPath(); ctx.ellipse(W*0.32, H*0.9, W*0.3, H*0.045, 0, 0, 7); ctx.fill();
 
-  // 바닥
-  ctx.fillStyle = 'rgba(255,255,255,0.07)';
-  ctx.beginPath(); ctx.ellipse(W*0.32, H*0.88, W*0.3, H*0.05, 0, 0, 7); ctx.fill();
+  // 올라가는 물방울
+  if (Math.random() < 0.1) bubbles.push({ x: Math.random()*W, y: H+10, r: 2+Math.random()*6, v: 25+Math.random()*35, ph: Math.random()*6.28 });
+  ctx.strokeStyle = 'rgba(220,245,255,0.5)'; ctx.lineWidth = 1.5;
+  for (var b = bubbles.length-1; b >= 0; b--) {
+    var bb = bubbles[b];
+    bb.y -= bb.v * DT;
+    var bx = bb.x + Math.sin(bb.y*0.02 + bb.ph)*10;
+    if (bb.y < -12) { bubbles.splice(b,1); continue; }
+    ctx.beginPath(); ctx.arc(bx, bb.y, bb.r, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx - bb.r*0.3, bb.y - bb.r*0.3, bb.r*0.25, 0, 7); ctx.stroke();
+  }
 
   // 떠다니는 하트/음표
   if (Math.random() < 0.06 + singEnergy*0.3) {
@@ -471,39 +495,146 @@ function draw(time){
   }
   ctx.globalAlpha = 1;
 
-  drawIdolScene(W, H, time);
+  drawIdol(W*0.34, H*0.6, time, W);
   if (singMode) drawSingMeter(W, H);
 }
 
-// 생성한 미쿠 그림으로 무대 장면 그리기
-var idolImg = null, idolReady = false;
-(function(){
-  var img = new Image();
-  img.onload = function(){ idolReady = true; };
-  img.src = 'assets/idol.png';
-  idolImg = img;
-})();
-function drawIdolScene(W, H, time){
+// 전시중독 미쿠 느낌의 우리 버전 캐릭터 (움직이는 그림)
+function drawIdol(cx, cy, time, W){
+  var s = Math.min(W*0.3, 160) / 150; // 스케일
+  var bob = Math.sin(time*1.6)*5 + Math.abs(Math.sin(avatar.bounce)) * 4 * s;
+  var danceTilt = avatar.dance > 0 ? Math.sin(time*10)*0.12 : 0;
+  var drift = Math.sin(time*0.9)*6; // 물속에 떠서 살랑살랑
   ctx.save();
-  if (idolReady && idolImg) {
-    // 커버 비율로 그리기
-    var iw = idolImg.width, ih = idolImg.height;
-    var sc = Math.max(W/iw, H/ih);
-    // 춤출 때 카메라가 살짝 들썩, 노래할 때도bounce
-    var pulse = 1;
-    if (avatar.dance > 0) pulse += 0.02 * Math.sin(time*10);
-    if (singMode) pulse += 0.008 * Math.sin(avatar.bounce*2);
-    sc *= pulse;
-    var dw = iw*sc, dh = ih*sc;
-    var bob = Math.abs(Math.sin(avatar.bounce)) * 3;
-    ctx.translate(W*0.32, H*0.55 - bob);
-    ctx.drawImage(idolImg, -dw/2, -dh/2, dw, dh);
-  } else {
-    // 그림 로딩 중: 분홍 무대 불빛
-    var g2 = ctx.createRadialGradient(W*0.32, H*0.4, 20, W*0.32, H*0.5, H*0.8);
-    g2.addColorStop(0,'rgba(255,214,235,0.5)'); g2.addColorStop(1,'rgba(90,40,110,0.2)');
-    ctx.fillStyle = g2; ctx.fillRect(0,0,W,H);
+  ctx.translate(cx + drift, cy - bob);
+  ctx.rotate(danceTilt);
+  ctx.scale(s, s);
+
+  // ===== 흘러내리는 긴 흰 머리 (물속에 떠 있음) =====
+  ctx.fillStyle = '#ece9fa';
+  var flow = Math.sin(time*1.2)*10;
+  [[-1],[1]].forEach(function(sd){
+    var sx = sd[0];
+    ctx.beginPath();
+    ctx.moveTo(sx*30, -40);
+    ctx.quadraticCurveTo(sx*85 + flow*sx, 20, sx*60 + flow*sx*1.6, 130);
+    ctx.quadraticCurveTo(sx*40 + flow*sx, 60, sx*22, -10);
+    ctx.closePath(); ctx.fill();
+  });
+
+  // ===== 몸통: 남색 세일러복 =====
+  ctx.fillStyle = '#22254f';
+  ctx.beginPath();
+  ctx.moveTo(-30, 100); ctx.quadraticCurveTo(0, 52, 30, 100);
+  ctx.quadraticCurveTo(0, 122, -30, 100); ctx.fill();
+  ctx.strokeStyle = '#3a3e78'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-18, 96); ctx.lineTo(-10, 112);
+  ctx.moveTo(0, 100); ctx.lineTo(0, 118);
+  ctx.moveTo(18, 96); ctx.lineTo(10, 112);
+  ctx.stroke();
+  ctx.fillStyle = '#2a2e5e';
+  ctx.beginPath(); ctx.ellipse(0, 62, 30, 34, 0, Math.PI, 0); ctx.fill();
+
+  // 팔 (흰 장갑)
+  function arm(side, wave){
+    ctx.save();
+    ctx.translate(side*28, 34);
+    ctx.rotate(side * (wave > 0 ? -1.9 + Math.sin(time*12)*0.3 : 0.45));
+    ctx.strokeStyle='#ece9fa'; ctx.lineWidth=12; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,42); ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath(); ctx.arc(0, 46, 8, 0, 7); ctx.fill();
+    ctx.restore();
   }
+  arm(-1, avatar.armWave); arm(1, avatar.armWave);
+
+  // 세일러 카라 + 빨간 넥타이
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(-26, 34); ctx.lineTo(0, 52); ctx.lineTo(26, 34);
+  ctx.lineTo(20, 26); ctx.lineTo(0, 40); ctx.lineTo(-20, 26);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#d8203c';
+  ctx.beginPath();
+  ctx.moveTo(-6, 40); ctx.lineTo(6, 40); ctx.lineTo(4, 72); ctx.lineTo(0, 80); ctx.lineTo(-4, 72);
+  ctx.closePath(); ctx.fill();
+
+  // ===== 머리 =====
+  ctx.fillStyle = '#f6f4ff';
+  ctx.beginPath(); ctx.ellipse(0, -20, 46, 43, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-44, -14, 12, 26, 0.2, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(44, -14, 12, 26, -0.2, 0, 7); ctx.fill();
+  // 사선 앞머리
+  ctx.beginPath();
+  ctx.moveTo(-46, -34);
+  ctx.quadraticCurveTo(-20, -68, 30, -56);
+  ctx.quadraticCurveTo(46, -50, 46, -34);
+  ctx.quadraticCurveTo(20, -46, -10, -42);
+  ctx.quadraticCurveTo(-34, -40, -46, -22);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(184,168,232,0.6)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-30, -52); ctx.quadraticCurveTo(0, -60, 28, -48); ctx.stroke();
+
+  // 빨간 눈
+  var blink = Math.sin(time*0.9) > 0.98 ? 0.12 : 1;
+  [[-17],[17]].forEach(function(e){
+    var ex = e[0];
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.ellipse(ex, -18, 7, 9*blink, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#d02030';
+    ctx.beginPath(); ctx.ellipse(ex, -18, 5.5, 7.5*blink, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#1a0a10';
+    ctx.beginPath(); ctx.ellipse(ex, -17, 2.6, 4*blink, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(ex-2, -21, 1.8, 0, 7); ctx.fill();
+  });
+  // 볼터치
+  if (avatar.blush > 0 || singEnergy > 0.3) {
+    ctx.globalAlpha = Math.max(avatar.blush, singEnergy*0.7);
+    ctx.fillStyle = '#ffb3c9';
+    ctx.beginPath(); ctx.ellipse(-27,-6,7,4,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(27,-6,7,4,0,0,7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // 입 (목소리에 맞춰 움직임!)
+  var mo = 3 + avatar.mouth * 12;
+  ctx.fillStyle = '#c2183c';
+  ctx.beginPath(); ctx.ellipse(0, 1, 5.5, mo, 0, 0, 7); ctx.fill();
+
+  // ===== 해파리 모자 =====
+  var jx = 6, jy = -62;
+  var jw = 34 + Math.sin(time*2)*3, jh = 24 + Math.sin(time*2+1)*3;
+  ctx.fillStyle = 'rgba(255,190,215,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(jx-jw, jy);
+  ctx.quadraticCurveTo(jx, jy-jh*2.1, jx+jw, jy);
+  ctx.quadraticCurveTo(jx, jy+10, jx-jw, jy);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath(); ctx.ellipse(jx-jw*0.35, jy-jh*0.7, 8, 5, -0.4, 0, 7); ctx.fill();
+  // 빨간 줄무늬 촉수
+  ctx.strokeStyle = '#e04858'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  var tt = time*2;
+  for (var tI = 0; tI < 4; tI++) {
+    var tx0 = jx - 22 + tI*15;
+    ctx.beginPath();
+    ctx.moveTo(tx0, jy+4);
+    ctx.quadraticCurveTo(tx0 - 8 + Math.sin(tt+tI)*7, jy+26, tx0 - 14 + flow*0.7, jy + 48 + Math.sin(tt*0.8+tI)*4);
+    ctx.stroke();
+  }
+
+  // 마이크
+  ctx.strokeStyle='#ece9fa'; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-8, 52); ctx.lineTo(16, 36); ctx.stroke();
+  ctx.fillStyle='#ffd76e';
+  ctx.beginPath(); ctx.arc(20, 33, 9, 0, 7); ctx.fill();
+
+  // 림라이트 (물속 역광)
+  ctx.strokeStyle = 'rgba(180,235,255,0.55)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(0, -20, 49, 46, 0, -2.4, -0.9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(34, 90); ctx.quadraticCurveTo(0, 126, -34, 90); ctx.stroke();
+
   ctx.restore();
 }
 
