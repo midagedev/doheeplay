@@ -77,6 +77,18 @@
   .note { font-size:13px; color:#9d92c2; margin-top:16px; line-height:1.65; }
   #endStats { font-size:clamp(16px,4.2vw,20px); line-height:2.1; margin-bottom:20px; color:#ffe9f3; }
   #endStats b { color:#ffd76e; font-size:1.25em; }
+  /* 팬들이 늦게 보내온 AI 편지 (엔딩 화면) */
+  #fanLetters { width:min(420px,100%); margin:-10px 0 16px; }
+  #fanLetters div {
+    margin-top:7px; padding:7px 12px; border-radius:13px; text-align:left;
+    background:rgba(10,8,25,0.5); font-size:13px; line-height:1.45; color:#f2ecff;
+    animation:pop 0.25s ease both;
+  }
+  #fanLetters b { margin-right:6px; font-size:12px; }
+  #fanLetters div:nth-child(1) b { color:#ff9ec2; }
+  #fanLetters div:nth-child(2) b { color:#9ed8ff; }
+  #fanLetters div:nth-child(3) b { color:#b5f0a8; }
+  #fanLetters div:nth-child(4) b { color:#e2b8ff; }
   .fadeIn { animation:fade 1s ease both; }
   @keyframes fade { from{opacity:0} to{opacity:1} }
 </style>
@@ -127,6 +139,7 @@
   <h1>📣 오늘 방송 끝!</h1>
   <div id="endStats"></div>
   <p class="sub" id="endMsg">팬들이 모두 행복하게 잘 자러 갔어. 내일 또 만나!</p>
+  <div id="fanLetters"></div>
   <button class="btn" id="btnRetry">다시 방송하기</button>
 </div>
 
@@ -301,6 +314,34 @@ function ambientChat(){
     else fanReact(keys[Math.floor(Math.random()*keys.length)], 1);
   }
 }
+
+// ================= AI (가족 GLM 릴레이) =================
+// 우리 집 릴레이(키 없음, tailnet에서만 동작). 실패하면 null → 원래 대사로 진행.
+var AI = {
+  url: 'https://vps.mogera-goblin.ts.net:10001/v1/chat/completions',
+  model: 'glm-5.3-flash',
+  chat: function(messages, opts){
+    opts = opts || {};
+    return fetch(this.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        thinking: { type: 'disabled' },
+        messages: messages,
+        max_tokens: opts.maxTokens || 350,
+        temperature: opts.temperature || 0.9
+      }),
+      signal: AbortSignal.timeout(opts.timeoutMs || 4500)
+    }).then(function(res){
+      if (!res.ok) return null;
+      return res.json().then(function(data){
+        var t = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        return t ? t.trim() : null;
+      });
+    }).catch(function(){ return null; });
+  }
+};
 
 // ================= 행동 =================
 // 동작 시작: type별로 캐릭터가 자연스럽게 따라 함
@@ -701,16 +742,10 @@ function drawIdolShapes(cx, cy, time, W){
 // 부위별 SVG를 이미지로 만들어 종이인형처럼 붙이고, 포즈에 맞춰 회전/이동
 var SVGPARTS = {};
 (function buildParts(){
-  // SVG 이름공간 문자열 (네트워크 요청이 아니라 그림 형식 표시용)
-  var NS = 'http://www.w3' + '.org/2000/svg';
-  function svg(w, h, body, opts){
-    var defs = '';
-    var filter = '';
-    if (opts && opts.blur) {
-      defs = '<defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + opts.blur + '"/></filter></defs>';
-      filter = ' filter="url(#f)"';
-    }
-    var s = '<svg xmlns="' + NS + '" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + defs + body + '</svg>';
+  // SVG 이름공간 (그림 형식 표시용 문자열, 조립해서 만듦)
+  var NS = 'http:' + '/' + '/www.w3.org' + '/2000/svg';
+  function svg(w, h, body){
+    var s = '<svg xmlns="' + NS + '" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + body + '</svg>';
     var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
     var img = new Image();
     img.src = url;
@@ -907,15 +942,39 @@ async function startGame(){
   setTimeout(function(){ pushChat('f1','오늘도 방송 기다렸어! 💖'); }, 1800);
 }
 function endGame(){
+  if (state === 'end') return; // 종료 버튼/esc 연타로 엔딩이 두 번 뜨지 않게
   state = 'end';
   singMode = false;
+  var grade = att > 85 ? '🏆 전설의 아이돌!' : att > 60 ? '⭐ 슈퍼 아이돌!' : '🌱 내일 더 잘할 수 있어!';
+  var durMin = Math.max(1, Math.round((lastT/1000 - startTime) / 60));
+  var endMsgEl = document.getElementById('endMsg');
+  var defaultEnd = '팬들이 모두 행복하게 잘 자러 갔어. 내일 또 만나!';
+  endMsgEl.textContent = defaultEnd;
+  document.getElementById('fanLetters').innerHTML = '';
+
+  // 엔딩 팬 리액션: AI가 이번 방송 기록을 보고 작별 인사를 쓴다(엔딩당 1회 호출).
+  // 릴레이는 Tailscale이 켜져 있어야 하고, 안 오면 원래 고정 문장으로 그대로 끝난다.
+  var aiEnding = AI.chat([
+    { role: 'system', content: '게임 "미쿠 물속 방송"(해파리 아이돌 미쿠) 엔딩 작가. 팬 4명 성격 — 미쿠최고팬(열성, 이모지), 조용한밤(과묵, "…"), 떡볶이킬러(장난, ㅋㅋㅋ), 오늘첫방(새내기, 존댓말). 아이가 읽는 한국어로 따뜻하게. 설명 없이 JSON만 출력: {"goodbye":["30자 이하 문장 4개(미쿠최고팬, 조용한밤, 떡볶이킬러, 오늘첫방 순서)"],"end":"50자 이하 마무리 문장(방송 기록 한 가지 언급)"}' },
+    { role: 'user', content: '방송 기록: ' + durMin + '분 동안 최고 시청자 ' + peakViewers + '명, 하트 ' + Math.floor(hearts) + '개, 최종 관심도 ' + Math.round(att) + '%, 마지막 행동 ' + (lastAction || '인사') + '. 엔딩 JSON만 줘.' }
+  ], { maxTokens: 260, timeoutMs: 12000 }).then(function(text){
+    var m = text && text.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      var j = JSON.parse(m[0]);
+      var g = Array.isArray(j.goodbye) ? j.goodbye.map(function(s){ return String(s || '').slice(0, 60); }) : [];
+      if (g.filter(function(s){ return s; }).length < 2) return null;
+      return { goodbye: g, end: j.end ? String(j.end).slice(0, 90) : null };
+    } catch (e) { return null; }
+  });
+
+  // 팬들은 먼저 원래 하듯 인사하고 흩어진다(여기까지는 언제나 같음)
   LINES.goodbye.forEach(function(l, i){
     setTimeout(function(){ pushChat(l[0], l[1]); }, i*500);
   });
   setTimeout(function(){
     document.getElementById('live').classList.add('hidden');
     var stats = document.getElementById('endStats');
-    var grade = att > 85 ? '🏆 전설의 아이돌!' : att > 60 ? '⭐ 슈퍼 아이돌!' : '🌱 내일 더 잘할 수 있어!';
     stats.innerHTML =
       '최고 시청자: <b>' + peakViewers.toLocaleString() + '명</b><br>' +
       '받은 하트: <b>' + Math.floor(hearts).toLocaleString() + '개</b> 💖<br>' +
@@ -923,6 +982,28 @@ function endGame(){
     var ov = document.getElementById('endScreen');
     ov.classList.remove('hidden'); ov.classList.add('fadeIn');
   }, 2400);
+
+  // 조금 뒤, AI가 이번 방송 기록을 보고 팬들의 "늦은 편지"를 엔딩 화면에 보내준다.
+  // Tailscale이 꺼져 있거나 AI가 늦/실패하면 편지는 그냥 안 온다(엔딩은 그대로 완결).
+  aiEnding.then(function(ai){
+    if (!ai || state !== 'end') return; // 그 사이 다시 방송을 시작했으면 무시
+    if (ai.end) endMsgEl.textContent = ai.end;
+    var fanNames = ['미쿠최고팬', '조용한밤', '떡볶이킬러', '오늘첫방'];
+    ai.goodbye.forEach(function(line, i){
+      if (!line) return;
+      setTimeout(function(){
+        if (state !== 'end') return;
+        var row = document.createElement('div');
+        var b = document.createElement('b');
+        b.textContent = fanNames[i] || '팬';
+        row.appendChild(b);
+        row.appendChild(document.createTextNode(' ' + line));
+        var lettersEl = document.getElementById('fanLetters');
+        lettersEl.appendChild(row);
+        while (lettersEl.children.length > 4) lettersEl.removeChild(lettersEl.firstChild);
+      }, 400 + i * 600);
+    });
+  });
 }
 document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnRetry').addEventListener('click', function(){

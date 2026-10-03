@@ -32,10 +32,14 @@ const textExtensions = new Set([".css", ".html", ".js", ".json", ".svg", ".txt"]
 const maxFileBytes = 3 * 1024 * 1024;
 const maxGameBytes = 12 * 1024 * 1024;
 
+// 게임이 부를 수 있는 유일한 네트워크 엔드포인트: 가족 GLM 릴레이(tailnet 전용, 키 없음).
+// 스킬 참고: .agents/skills/game-ai. 이 origin을 코드에 정확히 담은 파일만 fetch()를 쓸 수 있고,
+// 그 외 모든 외부 URL·네트워크 API는 계속 차단한다.
+const allowedNetOrigin = "https://vps.mogera-goblin.ts.net:10001";
+
 const blockedPatterns = [
   { pattern: /https?:\/\//i, label: "external http(s) URL" },
   { pattern: /\/\/[a-z0-9.-]+\.[a-z]{2,}/i, label: "protocol-relative external URL" },
-  { pattern: /\bfetch\s*\(/, label: "fetch()" },
   { pattern: /\bXMLHttpRequest\b/, label: "XMLHttpRequest" },
   { pattern: /\bWebSocket\s*\(/, label: "WebSocket" },
   { pattern: /\bEventSource\s*\(/, label: "EventSource" },
@@ -130,8 +134,15 @@ async function validateTextFile(filePath, errors) {
   }
 
   const content = await fs.readFile(filePath, "utf8");
+  // fetch()는 릴레이를 쓰는 파일에서만 허용. 릴레이 origin은 검사 전에 지워서
+  // "외부 URL" 패턴에 걸리지 않게 한다(다른 외부 URL은 그대로 걸린다).
+  const usesRelay = content.includes(allowedNetOrigin);
+  if (/\bfetch\s*\(/.test(content) && !usesRelay) {
+    fail(errors, `${relative(filePath)} contains blocked pattern: fetch() (allowed only for the GLM relay)`);
+  }
+  const scrubbed = usesRelay ? content.split(allowedNetOrigin).join(" ") : content;
   for (const { pattern, label } of blockedPatterns) {
-    if (pattern.test(content)) {
+    if (pattern.test(scrubbed)) {
       fail(errors, `${relative(filePath)} contains blocked pattern: ${label}`);
     }
   }
