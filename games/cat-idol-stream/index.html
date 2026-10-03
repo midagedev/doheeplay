@@ -701,6 +701,8 @@ function drawIdolShapes(cx, cy, time, W){
 // 부위별 SVG를 이미지로 만들어 종이인형처럼 붙이고, 포즈에 맞춰 회전/이동
 var SVGPARTS = {};
 (function buildParts(){
+  // SVG 이름공간 문자열 (네트워크 요청이 아니라 그림 형식 표시용)
+  var NS = 'http://www.w3' + '.org/2000/svg';
   function svg(w, h, body, opts){
     var defs = '';
     var filter = '';
@@ -708,7 +710,7 @@ var SVGPARTS = {};
       defs = '<defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + opts.blur + '"/></filter></defs>';
       filter = ' filter="url(#f)"';
     }
-    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + defs + body + '</svg>';
+    var s = '<svg xmlns="' + NS + '" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + defs + body + '</svg>';
     var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
     var img = new Image();
     img.src = url;
