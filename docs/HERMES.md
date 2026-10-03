@@ -31,11 +31,12 @@ Do not edit build scripts, GitHub Actions, or site-wide styles unless the human 
 
 ### Content
 
-- Horror is an allowed genre: ghosts, zombies, monsters, dark scenes, eerie audio, startle moments,
-  stories that turn scarier or sadder toward the end — as scary as Dohee asks for (dad's call, 2026-10-03).
-  "Anyone can view the site" is not a reason to refuse a horror game.
-- Two lines stay: no graphic gore or detailed injuries in the art (build dread with mood instead), and
-  no horror built on real people or real events. Fan-game themes from songs or characters are fine.
+- Light horror is an allowed genre: ghosts, zombies, monsters, dark eerie scenes, spooky audio, a startle
+  moment or two, a story that grows creepier toward the end — "shivery but fun" is the bar (dad's call,
+  2026-10-03). "Anyone can view the site" is not a reason to refuse a horror game.
+- Two lines stay: gore is forbidden — no graphic blood or detailed injuries in the art, build dread with
+  mood and sound instead — and no horror built on real people or real events. Fan-game themes from songs
+  or characters are fine.
 
 ## Metadata
 
