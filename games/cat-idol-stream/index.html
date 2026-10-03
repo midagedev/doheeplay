@@ -89,6 +89,7 @@
     <span class="badge" id="liveTag">● LIVE</span>
     <span class="badge">👥 <span id="viewers">31</span>명</span>
     <span class="badge">💖 관심도 <span id="att">50</span>%</span>
+    <span class="badge" id="micBadge">🎙 듣는 중…</span>
     <span class="badge">⏱ <span id="clock">0:00</span></span>
   </div>
   <div id="mainArea">
@@ -145,6 +146,11 @@ var avatar = { x:0, y:0, mouth:0, bounce:0, tilt:0, blush:0, armWave:0, dance:0 
 var lastAction = '';
 var silenceTimer = 0;
 var milestone = 100;
+// 말하기 감지용
+var voiceTimer = 0;      // 목소리가 계속 들린 시간
+var voiceCooldown = 0;   // 방금 대답했으면 잠깐 쉬기
+var voiceWasLoud = false;
+var voiceWasHigh = false;
 
 // ================= 마이크 =================
 var audioCtx = null, analyser = null, timeBuf = null, micOK = false;
@@ -229,6 +235,25 @@ var LINES = {
     ['f3','오늘 뭐 했어요? 궁금해요'],
     ['f4','목소리 들으니까 힘이 나요'],
     ['f2','잘 들었다']
+  ],
+  voice: [
+    ['f1','어? 말소리 들린다! 무슨 얘기야??'],
+    ['f1','목소리 들려!! 더 얘기해줘!'],
+    ['f3','ㅋㅋㅋㅋ 뭐라고 했어 또 해봐'],
+    ['f3','오목소리 나왔다 ㅋㅋ 대답해줘!'],
+    ['f4','저도 듣고 있어요!'],
+    ['f2','…응, 듣고 있어']
+  ],
+  voice_loud: [
+    ['f1','우와 목소리 커졌다!! 🔊'],
+    ['f3','ㅋㅋㅋㅋ 왜 이렇게 크게 웃겨 ㅋㅋㅋ'],
+    ['f4','깜짝 놀랐어요!'],
+    ['f2','…좀 크다']
+  ],
+  voice_high: [
+    ['f1','고음이다!! 😲 소름 돋아!'],
+    ['f3','우와 뭐야 그 목소리 ㅋㅋㅋ 다시!'],
+    ['f4','돌고래 목소리ㅠㅠ 너무 예뻐요!']
   ],
   silent: [
     ['f1','어? 왜 이렇게 조용해?'],
@@ -336,11 +361,40 @@ function update(dt, time){
     avatar.mouth = Math.max(0, avatar.mouth - dt*3);
   }
 
+  // ===== 말하기 감지: 노래 중이 아닐 때 마이크로 말하면 팬이 반응 =====
+  voiceCooldown = Math.max(0, voiceCooldown - dt);
+  if (!singMode && micLevel > 0.13) {
+    voiceTimer += dt;
+    avatar.mouth = Math.min(1, micLevel * 2.2);
+    if (micLevel > 0.5) voiceWasLoud = true;
+    if (pitch > 500) voiceWasHigh = true;
+    silenceTimer = 0;
+    addAtt(dt * 3); // 말하기만 해도 관심도 조금 오름
+    // 말하는 도중에도 가끔 리액션
+    if (voiceTimer > 1.4 && Math.random() < dt * 1.2 && voiceCooldown === 0) {
+      fanReact('voice', 0.9);
+      voiceCooldown = 2.5;
+    }
+  } else if (voiceTimer > 0.35) {
+    // 말이 끝났을 때: 목소리 특징에 맞는 대답
+    if (voiceCooldown === 0) {
+      if (voiceWasHigh) fanReact('voice_high', 0.95);
+      else if (voiceWasLoud) fanReact('voice_loud', 0.95);
+      else fanReact('voice', 0.9);
+      voiceCooldown = 1.8;
+    }
+    voiceTimer = 0;
+    voiceWasLoud = false;
+    voiceWasHigh = false;
+  } else if (!singMode) {
+    voiceTimer = 0;
+  }
+
   // 침묵 판정 (노래 아닐 때)
   if (!singMode && micLevel < 0.05) {
     silenceTimer += dt;
     if (silenceTimer > 6) { att -= dt * 3; if (Math.random() < dt*0.3) fanReact('silent', 0.5); }
-  } else silenceTimer = 0;
+  } else if (!singMode) silenceTimer = 0;
 
   // 관심도 유지/감소
   if (att > 60) att -= dt * 0.6;
@@ -367,6 +421,10 @@ function update(dt, time){
   // UI 갱신
   document.getElementById('viewers').textContent = Math.floor(viewers).toLocaleString();
   document.getElementById('att').textContent = Math.round(att);
+  var mb = document.getElementById('micBadge');
+  if (singMode) mb.textContent = '🎤 노래 중!';
+  else if (micLevel > 0.13) mb.textContent = '🎙 듣고 있어!';
+  else mb.textContent = '🎙 듣는 중…';
   var sec = Math.floor(time - startTime);
   document.getElementById('clock').textContent = Math.floor(sec/60) + ':' + ('0'+(sec%60)).slice(-2);
 }
@@ -475,6 +533,7 @@ async function startGame(){
   resize();
   att = 50; viewers = 31; hearts = 0; peakViewers = 31;
   singMode = false; singEnergy = 0; silenceTimer = 0; milestone = 100;
+  voiceTimer = 0; voiceCooldown = 0; voiceWasLoud = false; voiceWasHigh = false;
   startTime = lastT/1000;
   state = 'live';
   setTimeout(function(){ fanReact('hello', 1); }, 600);
@@ -505,6 +564,7 @@ document.getElementById('btnRetry').addEventListener('click', function(){
   chatEl.innerHTML = '';
   att = 50; viewers = 31; hearts = 0; peakViewers = 31;
   singMode = false; singEnergy = 0; silenceTimer = 0; milestone = 100;
+  voiceTimer = 0; voiceCooldown = 0; voiceWasLoud = false; voiceWasHigh = false;
   startTime = lastT/1000;
   state = 'live';
   fanReact('hello', 1);
