@@ -581,416 +581,104 @@ function draw(time){
   if (singMode) drawSingMeter(W, H);
 }
 
-/* 예전 도형 캐릭터 (이제 사용 안 함)
-function drawIdolShapes(cx, cy, time, W){
-  var s = Math.min(W*0.3, 160) / 150; // 스케일
-  var bob = Math.sin(time*pose.bSpd)*pose.bAmp*0.6;
-  var danceTilt = pose.body + pose.head*0.4;
-  var drift = Math.sin(time*0.9)*6; // 물속에 떠서 살랑살랑
-  ctx.save();
-  ctx.translate(cx + drift, cy - bob);
-  ctx.rotate(danceTilt);
-  ctx.scale(s, s);
+// ================= 도희가 보낸 캐릭터 이미지를 그대로 그리기 =================
+// assets/idol.jpg — 도희가 뽑아 준 우주 고양이 아이돌(750x976).
+// 이미지를 통째로 그리고, 눈 깜빡임·입모양·볼터치만 이미지 위에 얹는다.
+var IDOL = new Image();
+IDOL.src = 'assets/idol.jpg';
+var IDOL_W = 750, IDOL_H = 976;
+// 얼굴 위치(이미지 비율): 눈 x 41.5%/49.5% y 20.5%, 입 45.5% y 24.3% — 실측값
+var FACE = {
+  eyes: [{x:0.415, y:0.205}, {x:0.495, y:0.205}],
+  eyeW: 0.085, eyeH: 0.048,
+  mouth: {x:0.455, y:0.246},
+  cheekY: 0.235,
+  lid: '#FCEEE5', lash: '#3A2A3E'
+};
 
-  // ===== 흘러내리는 긴 흰 머리 (물속에 떠 있음) =====
-  ctx.fillStyle = '#ece9fa';
-  var flow = Math.sin(time*1.2)*10;
-  [[-1],[1]].forEach(function(sd){
-    var sx = sd[0];
-    ctx.beginPath();
-    ctx.moveTo(sx*30, -40);
-    ctx.quadraticCurveTo(sx*85 + flow*sx, 20, sx*60 + flow*sx*1.6, 130);
-    ctx.quadraticCurveTo(sx*40 + flow*sx, 60, sx*22, -10);
-    ctx.closePath(); ctx.fill();
-  });
-
-  // ===== 몸통: 남색 세일러복 =====
-  ctx.fillStyle = '#22254f';
-  ctx.beginPath();
-  ctx.moveTo(-30, 100); ctx.quadraticCurveTo(0, 52, 30, 100);
-  ctx.quadraticCurveTo(0, 122, -30, 100); ctx.fill();
-  ctx.strokeStyle = '#3a3e78'; ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(-18, 96); ctx.lineTo(-10, 112);
-  ctx.moveTo(0, 100); ctx.lineTo(0, 118);
-  ctx.moveTo(18, 96); ctx.lineTo(10, 112);
-  ctx.stroke();
-  ctx.fillStyle = '#2a2e5e';
-  ctx.beginPath(); ctx.ellipse(0, 62, 30, 34, 0, Math.PI, 0); ctx.fill();
-
-  // 팔 (행동에 맞춰 자연스럽게 움직임)
-  function arm(side, ang){
-    ctx.save();
-    ctx.translate(side*28, 34);
-    ctx.rotate(side * ang);
-    ctx.strokeStyle='#ece9fa'; ctx.lineWidth=12; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,42); ctx.stroke();
-    ctx.fillStyle='#ffffff';
-    ctx.beginPath(); ctx.arc(0, 46, 8, 0, 7); ctx.fill();
-    ctx.restore();
-  }
-  arm(-1, pose.armL); arm(1, pose.armR);
-
-  // 세일러 카라 + 빨간 넥타이
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.moveTo(-26, 34); ctx.lineTo(0, 52); ctx.lineTo(26, 34);
-  ctx.lineTo(20, 26); ctx.lineTo(0, 40); ctx.lineTo(-20, 26);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#d8203c';
-  ctx.beginPath();
-  ctx.moveTo(-6, 40); ctx.lineTo(6, 40); ctx.lineTo(4, 72); ctx.lineTo(0, 80); ctx.lineTo(-4, 72);
-  ctx.closePath(); ctx.fill();
-
-  // ===== 머리 =====
-  ctx.save();
-  ctx.translate(0, -20);
-  ctx.rotate(pose.head);
-  ctx.translate(0, 20);
-  ctx.fillStyle = '#f6f4ff';
-  ctx.beginPath(); ctx.ellipse(0, -20, 46, 43, 0, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-44, -14, 12, 26, 0.2, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(44, -14, 12, 26, -0.2, 0, 7); ctx.fill();
-  // 사선 앞머리
-  ctx.beginPath();
-  ctx.moveTo(-46, -34);
-  ctx.quadraticCurveTo(-20, -68, 30, -56);
-  ctx.quadraticCurveTo(46, -50, 46, -34);
-  ctx.quadraticCurveTo(20, -46, -10, -42);
-  ctx.quadraticCurveTo(-34, -40, -46, -22);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(184,168,232,0.6)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(-30, -52); ctx.quadraticCurveTo(0, -60, 28, -48); ctx.stroke();
-
-  // 빨간 눈
-  var blink = Math.sin(time*0.9) > 0.98 ? 0.12 : 1;
-  [[-17],[17]].forEach(function(e){
-    var ex = e[0];
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.ellipse(ex, -18, 7, 9*blink, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#d02030';
-    ctx.beginPath(); ctx.ellipse(ex, -18, 5.5, 7.5*blink, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#1a0a10';
-    ctx.beginPath(); ctx.ellipse(ex, -17, 2.6, 4*blink, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(ex-2, -21, 1.8, 0, 7); ctx.fill();
-  });
-  // 볼터치
-  if (avatar.blush > 0 || singEnergy > 0.3) {
-    ctx.globalAlpha = Math.max(avatar.blush, singEnergy*0.7);
-    ctx.fillStyle = '#ffb3c9';
-    ctx.beginPath(); ctx.ellipse(-27,-6,7,4,0,0,7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(27,-6,7,4,0,0,7); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  // 입 (목소리에 맞춰 움직임!)
-  var mo = 3 + avatar.mouth * 12;
-  ctx.fillStyle = '#c2183c';
-  ctx.beginPath(); ctx.ellipse(0, 1, 5.5, mo, 0, 0, 7); ctx.fill();
-  ctx.restore(); // 머리 갸웃 끝
-
-  // ===== 해파리 모자 =====
-  var jx = 6, jy = -62;
-  var jw = 34 + Math.sin(time*2)*3, jh = 24 + Math.sin(time*2+1)*3;
-  ctx.fillStyle = 'rgba(255,190,215,0.85)';
-  ctx.beginPath();
-  ctx.moveTo(jx-jw, jy);
-  ctx.quadraticCurveTo(jx, jy-jh*2.1, jx+jw, jy);
-  ctx.quadraticCurveTo(jx, jy+10, jx-jw, jy);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.beginPath(); ctx.ellipse(jx-jw*0.35, jy-jh*0.7, 8, 5, -0.4, 0, 7); ctx.fill();
-  // 빨간 줄무늬 촉수
-  ctx.strokeStyle = '#e04858'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-  var tt = time*2;
-  for (var tI = 0; tI < 4; tI++) {
-    var tx0 = jx - 22 + tI*15;
-    ctx.beginPath();
-    ctx.moveTo(tx0, jy+4);
-    ctx.quadraticCurveTo(tx0 - 8 + Math.sin(tt+tI)*7, jy+26, tx0 - 14 + flow*0.7, jy + 48 + Math.sin(tt*0.8+tI)*4);
-    ctx.stroke();
-  }
-
-  // 마이크
-  ctx.strokeStyle='#ece9fa'; ctx.lineWidth=6; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(-8, 52); ctx.lineTo(16, 36); ctx.stroke();
-  ctx.fillStyle='#ffd76e';
-  ctx.beginPath(); ctx.arc(20, 33, 9, 0, 7); ctx.fill();
-
-  // 하트 보내기 동작: 머리 위에 커다란 하트!
-  if (actionAnim && actionAnim.type === 'heart') {
-    var pop = Math.min(1, actionAnim.t / 0.35);
-    var hs = Math.round(26 + pop * 22 + Math.sin(actionAnim.t*6)*3);
-    ctx.font = hs + 'px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('💖', 0, -108 - pop*12);
-  }
-  // 인사 동작: 손끝에서 반짝!
-  if (actionAnim && actionAnim.type === 'greet' && Math.random() < 0.3) {
-    ctx.fillStyle = 'rgba(255,235,140,' + (0.5 + Math.random()*0.5) + ')';
-    ctx.beginPath(); ctx.arc(28 - Math.sin(pose.armR)*46, -8 - Math.cos(pose.armR)*46, 2.5, 0, 7); ctx.fill();
-  }
-
-  // 림라이트 (물속 역광)
-  ctx.strokeStyle = 'rgba(180,235,255,0.55)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.ellipse(0, -20, 49, 46, 0, -2.4, -0.9); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(34, 90); ctx.quadraticCurveTo(0, 126, -34, 90); ctx.stroke();
-
-  ctx.restore();
-}
-예전 도형 캐릭터 끝 */
-
-// ================= 그림 느낌 캐릭터 (SVG 레이어) =================
-// 부위별 SVG를 이미지로 만들어 종이인형처럼 붙이고, 포즈에 맞춰 회전/이동
-var SVGPARTS = {};
-(function buildParts(){
-  // SVG 이름공간 (그림 형식 표시용 문자열, 조립해서 만듦)
-  var NS = 'http:' + '/' + '/www.w3.org' + '/2000/svg';
-  function svg(w, h, body){
-    var s = '<svg xmlns="' + NS + '" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + body + '</svg>';
-    var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
-    var img = new Image();
-    img.src = url;
-    return img;
-  }
-  var SKIN='#FFF3EB', SKINS='#E5C4BA',
-      HAIR='#9C68D6', HAIRHL='#C49DF0', HAIRSH='#6C3F9E',
-      MINT='#A2E5D6', MINTL='#C6F5EC', MINTS='#77C2B2',
-      PERI='#B2C2F4', LAV='#CED6F9', BLUE='#5C8DD8',
-      NAVYR='#2B283A', GOLD='#FBE073', OUT='#4A3B52';
-
-  // 포니테일 (옆으로 높게 묶은 S자 웨이브 + 네이비 리본)
-  SVGPARTS.ponytail = svg(200, 270,
-    '<g>' +
-    '<path d="M100 10 C 160 24, 178 92, 150 150 C 132 190, 96 226, 58 256 C 88 214, 112 178, 122 138 C 98 190, 62 232, 30 258 C 62 218, 86 176, 94 130 C 76 168, 48 206, 20 230 C 50 196, 70 158, 76 118 C 60 60, 66 20, 100 10 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M104 18 C 148 34, 160 90, 138 138 C 150 96, 142 48, 104 18 Z" fill="' + HAIRHL + '" opacity="0.8"/>' +
-    '<path d="M70 40 C 56 84, 52 140, 64 190 C 54 150, 56 92, 70 40 Z" fill="' + HAIRSH + '" opacity="0.7"/>' +
-    // 네이비 리본
-    '<g>' +
-    '<path d="M96 22 C 74 6, 48 8, 40 26 C 52 38, 78 40, 96 34 Z" fill="' + NAVYR + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    '<path d="M96 22 C 118 6, 144 8, 152 26 C 140 38, 114 40, 96 34 Z" fill="' + NAVYR + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    '<circle cx="96" cy="28" r="7" fill="' + BLUE + '" stroke="' + OUT + '" stroke-width="2"/>' +
-    '</g>' +
-    '</g>');
-
-  // 스커트 (3단: 라벤더/민트/라벤더 + 벨트)
-  SVGPARTS.skirt = svg(150, 96,
-    '<g>' +
-    '<path d="M14 30 C 44 18, 106 18, 136 30 L 128 74 C 98 86, 52 86, 22 74 Z" fill="' + PERI + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M20 46 C 50 56, 100 56, 130 46 L 126 66 C 98 76, 52 76, 24 66 Z" fill="' + MINT + '"/>' +
-    '<path d="M18 58 C 50 68, 100 68, 132 58 L 128 74 C 98 86, 52 86, 22 74 Z" fill="' + PERI + '"/>' +
-    '<circle cx="106" cy="40" r="4" fill="' + GOLD + '" stroke="' + OUT + '" stroke-width="1.5"/>' +
-    '<g>' + '<rect x="14" y="10" width="122" height="16" rx="8" fill="' + BLUE + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    '<circle cx="75" cy="18" r="6" fill="#ffffff" stroke="' + OUT + '" stroke-width="2"/>' +
-    '<path d="M112 30 l4 8 8 2 -6 6 2 8 -8 -4 -8 4 2 -8 -6 -6 8 -2 Z" fill="' + GOLD + '" stroke="' + OUT + '" stroke-width="1.5"/>' +
-    '</g>' +
-    '</g>');
-
-  // 상의 (민트 퍼프소매 블라우스 + 프릴 카라 + 조개 + 별)
-  SVGPARTS.torso = svg(130, 108,
-    '<g>' +
-    '<path d="M24 26 C 50 16, 80 16, 106 26 L 100 88 C 72 96, 58 96, 30 88 Z" fill="' + MINT + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M30 88 C 58 96, 72 96, 100 88 L 96 66 C 74 74, 56 74, 34 66 Z" fill="' + MINTS + '" opacity="0.6"/>' +
-    // 퍼프 소매
-    '<ellipse cx="20" cy="38" rx="18" ry="15" fill="' + MINT + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<ellipse cx="110" cy="38" rx="18" ry="15" fill="' + MINT + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<ellipse cx="20" cy="38" rx="10" ry="7" fill="' + MINTL + '" opacity="0.8"/>' +
-    '<ellipse cx="110" cy="38" rx="10" ry="7" fill="' + MINTL + '" opacity="0.8"/>' +
-    // 프릴 카라
-    '<path d="M28 24 C 40 40, 90 40, 102 24 C 96 44, 86 52, 65 52 C 44 52, 34 44, 28 24 Z" fill="' + MINTL + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    // 조개 + 별 장식
-    '<path d="M65 34 C 52 34, 44 44, 44 54 C 44 66, 54 72, 65 72 C 76 72, 86 66, 86 54 C 86 44, 78 34, 65 34 Z M65 38 L65 68 M52 46 C 58 50, 72 50, 78 46 M50 58 C 58 62, 72 62, 80 58" fill="' + LAV + '" stroke="' + OUT + '" stroke-width="2"/>' +
-    '<path d="M38 42 l2.5 5 5 2.5 -5 2.5 -2.5 5 -2.5 -5 -5 -2.5 5 -2.5 Z" fill="' + GOLD + '" stroke="' + OUT + '" stroke-width="1.2"/>' +
-    '<path d="M92 42 l2.5 5 5 2.5 -5 2.5 -2.5 5 -2.5 -5 -5 -2.5 5 -2.5 Z" fill="' + GOLD + '" stroke="' + OUT + '" stroke-width="1.2"/>' +
-    '</g>');
-
-  // 팔 (민트 소매 끝 + 살구 팔 + 검은 팔찌)
-  SVGPARTS.arm = svg(44, 112,
-    '<path d="M22 4 C 31 4, 33 14, 31 26 L 27 44 L 17 44 L 13 26 C 11 14, 13 4, 22 4 Z" fill="' + MINT + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M18 30 C 16 38, 17 42, 18 44 L 26 44 C 27 42, 28 38, 26 30 Z" fill="' + MINTS + '"/>' +
-    '<path d="M17 44 L 27 44 L 25.5 96 L 18.5 96 Z" fill="' + SKIN + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<rect x="16" y="52" width="12" height="5" rx="2.5" fill="#292831"/>' +
-    '<ellipse cx="22" cy="100" rx="11" ry="12" fill="' + SKIN + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M13 98 C 16 92, 28 92, 31 98" fill="none" stroke="' + SKINS + '" stroke-width="2"/>');
-
-  // 얼굴 (보라 앞머리 + 옆머리 + 검은 눈 + 볼터치 + 고양이 귀 + 별 핀)
-  SVGPARTS.head = svg(190, 180,
-    '<g>' +
-    // 뒷머리 베이스
-    '<path d="M20 96 C 8 64, 22 26, 64 14 C 106 2, 156 8, 172 42 C 182 62, 178 90, 168 106 C 152 130, 122 142, 90 136 C 56 130, 32 118, 20 96 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="3.5"/>' +
-    // 얼굴
-    '<path d="M32 88 C 28 116, 48 142, 92 142 C 136 142, 158 116, 154 88 C 150 62, 126 48, 93 48 C 60 48, 36 62, 32 88 Z" fill="' + SKIN + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    // 앞머리 (M자 뱅 + 바보털)
-    '<path d="M24 90 C 14 56, 34 20, 72 12 C 112 4, 154 12, 170 46 C 174 56, 172 64, 166 66 C 158 38, 132 22, 100 24 C 118 32, 130 44, 134 58 C 118 40, 96 32, 74 36 C 52 40, 36 56, 32 92 C 28 96, 25 95, 24 90 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M96 8 C 92 2, 98 -2, 104 2 C 100 0, 96 4, 96 8 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="2"/>' +
-    '<path d="M94 12 C 90 2, 102 -4, 106 4 C 100 2, 94 6, 94 12 Z" fill="' + HAIRHL + '"/>' +
-    // 옆머리
-    '<path d="M26 84 C 16 104, 18 126, 30 142 C 34 126, 36 104, 40 90 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    '<path d="M164 84 C 174 104, 172 126, 160 142 C 156 126, 154 104, 150 90 Z" fill="' + HAIR + '" stroke="' + OUT + '" stroke-width="2.5"/>' +
-    // 하이라이트
-    '<path d="M40 68 C 58 42, 96 28, 136 34 C 104 28, 66 38, 46 60 Z" fill="' + HAIRHL + '" opacity="0.8"/>' +
-    // 고양이 귀 (차콜 겉 + 핑크 안 + 흰 털)
-    '<g>' +
-    '<path d="M30 36 L 22 4 L 56 22 Z" fill="#2E2836" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M160 36 L 168 4 L 134 22 Z" fill="#2E2836" stroke="' + OUT + '" stroke-width="3"/>' +
-    '<path d="M33 30 L 28 12 L 48 23 Z" fill="#F9E9EE"/>' +
-    '<path d="M157 30 L 162 12 L 142 23 Z" fill="#F9E9EE"/>' +
-    '<path d="M36 28 C 40 24, 46 22, 50 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>' +
-    '<path d="M154 28 C 150 24, 144 22, 140 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>' +
-    '</g>' +
-    // 별 헤어핀 (오른쪽 관자놀이)
-    '<path d="M150 52 l3.5 7 7 3.5 -7 3.5 -3.5 7 -3.5 -7 -7 -3.5 7 -3.5 Z" fill="' + GOLD + '" stroke="' + OUT + '" stroke-width="1.5"/>' +
-    // 눈 (검은 큰 눈 + 보라 반사광)
-    '<g>' +
-    '<ellipse cx="66" cy="92" rx="13" ry="16" fill="#221F28" stroke="' + OUT + '" stroke-width="2"/>' +
-    '<ellipse cx="126" cy="92" rx="13" ry="16" fill="#221F28" stroke="' + OUT + '" stroke-width="2"/>' +
-    '<circle cx="61" cy="86" r="4.2" fill="#ffffff"/><circle cx="121" cy="86" r="4.2" fill="#ffffff"/>' +
-    '<circle cx="70" cy="98" r="2" fill="#ffffff" opacity="0.85"/><circle cx="130" cy="98" r="2" fill="#ffffff" opacity="0.85"/>' +
-    '<ellipse cx="66" cy="100" rx="6" ry="3" fill="#8C7FA8" opacity="0.75"/>' +
-    '<ellipse cx="126" cy="100" rx="6" ry="3" fill="#8C7FA8" opacity="0.75"/>' +
-    '</g>' +
-    // 눈썹
-    '<path d="M54 72 C 60 68, 70 68, 76 71" fill="none" stroke="' + HAIR + '" stroke-width="2.5" stroke-linecap="round"/>' +
-    '<path d="M116 71 C 122 68, 132 68, 138 72" fill="none" stroke="' + HAIR + '" stroke-width="2.5" stroke-linecap="round"/>' +
-    // 볼터치
-    '<ellipse cx="44" cy="112" rx="10" ry="5.5" fill="#F8B6AC" opacity="0.65"/>' +
-    '<ellipse cx="148" cy="112" rx="10" ry="5.5" fill="#F8B6AC" opacity="0.65"/>' +
-    '</g>');
-
-  // 후광 (골드 링)
-  SVGPARTS.halo = svg(120, 50,
-    '<g>' +
-    '<ellipse cx="60" cy="25" rx="52" ry="16" fill="none" stroke="#F4DE7C" stroke-width="9"/>' +
-    '<ellipse cx="60" cy="25" rx="52" ry="16" fill="none" stroke="#FFF5BA" stroke-width="4"/>' +
-    '</g>');
-})();
-
-// 그림 느낌 캐릭터 그리기 (포즈 따라 움직임)
 function drawIdol(cx, cy, time, W){
-  var S = Math.min(W*0.42, 340);        // 전체 크기
-  var k = S / 340;                       // 스케일 계수
-  var bob = Math.sin(time*pose.bSpd)*pose.bAmp*k;
-  var drift = Math.sin(time*0.9)*7*k;
+  var IH = Math.min(W*0.52, 340);       // 이미지 높이(화면 크기에 맞춤)
+  var IW = IH * IDOL_W / IDOL_H;
+  var k = IH / IDOL_H;
+  var bob = Math.sin(time*pose.bSpd)*pose.bAmp*0.5*k;   // 포즈에 맞춰 통째로 들썩
+  var drift = Math.sin(time*0.9)*6*k;
+  var br = 1 + Math.sin(time*pose.bSpd)*0.008;          // 숨쉬듯 살짝 늘었다 줄었다
   ctx.save();
   ctx.translate(cx + drift, cy - bob);
-  ctx.rotate(pose.body + pose.head*0.35);
-  ctx.scale(k, k);
-  // 부위 기준점 (340 기준)
-  var HIP = 60, TORSO = -18, NECK = -76, HEAD = -118;
+  ctx.rotate((pose.body + pose.head*0.5) * 0.55);
+  ctx.scale(br, 2 - br);
 
-  // 후광 (머리 위에 둥둥, 반박자 늦게 따라옴)
-  var haloLag = Math.sin(time*1.4 - 0.7)*4;
-  drawPart(SVGPARTS.halo, 6, HEAD-64 + haloLag*0.5, Math.sin(time*0.8)*0.08, 0.85);
-
-  // 포니테일 (왼쪽 위에서 바람에 흔들림 + 흔들림 지연)
-  var sway = Math.sin(time*1.7)*0.10 + pose.head*-0.6 + (pose.body*-1.2);
-  var swayV = Math.sin(time*1.7 - 0.5)*0.06; // 속도 차이로 자연스러운 지연
-  ctx.save();
-  ctx.translate(-50, HEAD+6);
-  ctx.rotate(sway + swayV);
-  drawPart(SVGPARTS.ponytail, -30, 30, 0, 0.88);
-  ctx.restore();
-
-  // 다리(스커트 아래 은은한 그림자 + 흰 양말)
-  ctx.fillStyle = 'rgba(30,30,60,0.18)';
-  ctx.beginPath(); ctx.ellipse(0, HIP+30, 44, 10, 0, 0, 7); ctx.fill();
-  // 흰 양말 다리
-  ctx.fillStyle = '#EDF1FD';
-  ctx.strokeStyle = '#4A3B52'; ctx.lineWidth = 3;
-  [[-16],[16]].forEach(function(l){
-    var lx = l[0];
+  var ready = IDOL.complete && IDOL.naturalWidth;
+  if (ready) {
+    ctx.drawImage(IDOL, -IW/2, -IH/2, IW, IH);
+  } else {
+    // 이미지 로딩 전에도 게임이 멈추지 않게 간단 실루엣
+    ctx.fillStyle = '#B79AE0';
+    ctx.beginPath(); ctx.ellipse(0, -IH*0.30, IW*0.14, IH*0.075, 0, 0, 7); ctx.fill();
     ctx.beginPath();
-    var legSw = Math.sin(time*pose.bSpd + (lx<0?0:0.4))*2;
-    ctx.roundRect ? ctx.roundRect(lx-8, HIP-6+legSw, 16, 46, 8) : ctx.rect(lx-8, HIP-6+legSw, 16, 46);
-    ctx.fill(); ctx.stroke();
-    // 라벤더 크록스 신발
-    ctx.fillStyle = '#BCA8E0';
-    ctx.beginPath(); ctx.ellipse(lx, HIP+44+legSw, 13, 9, 0, 0, 7); ctx.fill(); ctx.stroke();
-    // 별 지비츠
-    ctx.fillStyle = '#FBE073';
-    ctx.beginPath();
-    var sx = lx, sy = HIP+42+legSw;
-    for (var si = 0; si < 5; si++) {
-      var aa = -Math.PI/2 + si * Math.PI*2/5;
-      var aa2 = aa + Math.PI/5;
-      ctx.lineTo(sx + Math.cos(aa)*4.5, sy + Math.sin(aa)*4.5);
-      ctx.lineTo(sx + Math.cos(aa2)*2, sy + Math.sin(aa2)*2);
-    }
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#EDF1FD';
-  });
-
-  // 스커트
-  drawPart(SVGPARTS.skirt, 0, HIP-38, 0, 1);
-
-  // 팔 — 포즈 각도 적용
-  drawArm(-1, pose.armL, time);
-  drawArm(1, pose.armR, time);
-
-  // 상의
-  drawPart(SVGPARTS.torso, 0, TORSO, 0, 1);
-
-  // 머리 (갸웃)
-  ctx.save();
-  ctx.translate(0, NECK);
-  ctx.rotate(pose.head);
-  drawPart(SVGPARTS.head, 0, HEAD-NECK, 0, 1);
-  // 눈 깜빡임 (눈꺼풀이 내려왔다 올라감)
-  var bt = time % 3.4;                     // 3.4초마다 한 번
-  var blink = bt < 0.14 ? Math.sin(bt/0.14*Math.PI) : 0;
-  if (blink > 0.02) {
-    [[-29],[31]].forEach(function(e){
-      var ex = e[0], ey = 2;               // 눈 중심(머리 기준)
-      var lid = 30 * blink;                // 내려오는 높이
-      ctx.fillStyle = '#FFF3EB';
-      ctx.fillRect(ex-16, ey-17, 32, lid);
-      ctx.strokeStyle = '#4A3B52'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(ex-15, ey-17+lid); ctx.lineTo(ex+15, ey-17+lid); ctx.stroke();
-    });
+    ctx.moveTo(-IW*0.10, -IH*0.34); ctx.lineTo(-IW*0.13, -IH*0.44); ctx.lineTo(-IW*0.045, -IH*0.37);
+    ctx.moveTo(IW*0.10, -IH*0.34); ctx.lineTo(IW*0.13, -IH*0.44); ctx.lineTo(IW*0.045, -IH*0.37);
+    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, IH*0.12, IW*0.17, IH*0.22, 0, 0, 7); ctx.fill();
   }
-  // 입 (목소리 볼륨으로)
-  var mo = 2.5 + avatar.mouth * 10;
-  ctx.fillStyle = '#c2183c';
-  ctx.beginPath(); ctx.ellipse(0, 24, 5, mo, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#8f1030';
-  ctx.beginPath(); ctx.ellipse(0, 24+mo*0.4, 3.4, mo*0.4, 0, 0, 7); ctx.fill();
-  ctx.restore();
 
-  // 마이크 (오른손 위치 근처)
+  // 눈 깜빡임: 3.4초마다 눈꺼풀이 내려왔다 올라감 (이미지 위에 얹기)
+  if (ready) {
+    var bt = time % 3.4;
+    var blink = bt < 0.14 ? Math.sin(bt/0.14*Math.PI) : 0;
+    if (blink > 0.02) {
+      FACE.eyes.forEach(function(e){
+        var ew = FACE.eyeW*IW, eh = FACE.eyeH*IH;
+        var ex = e.x*IW, ey = e.y*IH;
+        var lid = eh * blink;
+        ctx.fillStyle = FACE.lid;
+        rr(ex-ew/2, ey-eh/2, ew, Math.max(lid, 0.5), ew*0.16); ctx.fill();
+        ctx.strokeStyle = FACE.lash; ctx.lineWidth = Math.max(1.2, 1.8*k);
+        ctx.beginPath();
+        ctx.moveTo(ex-ew/2+1, ey-eh/2+lid); ctx.lineTo(ex+ew/2-1, ey-eh/2+lid);
+        ctx.stroke();
+      });
+    }
+    // 입모양: 목소리 크기/노래에 맞춰 이미지 입 아래가 벌어졌다 닫힘
+    var mo = (0.8 + avatar.mouth * 9) * k;
+    if (mo > 1.6*k) {
+      var mx = FACE.mouth.x*IW, my = FACE.mouth.y*IH + mo*0.45;
+      ctx.fillStyle = '#8f2a4a';
+      ctx.beginPath(); ctx.ellipse(mx, my, (1.6 + avatar.mouth*4.5)*k, mo, 0, 0, 7); ctx.fill();
+    }
+    // 볼터치: 하트를 받거나 노래할 때 살짝 발그레
+    if (avatar.blush > 0 || singEnergy > 0.3) {
+      ctx.globalAlpha = Math.min(0.30, Math.max(avatar.blush*0.25, singEnergy*0.22));
+      ctx.fillStyle = '#ff8fae';
+      [[0.385],[0.525]].forEach(function(c){
+        ctx.beginPath();
+        ctx.ellipse(c[0]*IW, FACE.cheekY*IH, 0.028*IW, 0.013*IH, 0, 0, 7);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // 마이크 스탠드 (캐릭터 옆에 세워둔 소품 — 노래할 때 살짝 흔들림)
+  var micWob = singMode ? Math.sin(time*6)*0.03 : 0;
   ctx.save();
-  ctx.strokeStyle = '#efeaff'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(30, 18); ctx.lineTo(52, 2); ctx.stroke();
-  ctx.fillStyle = '#ffd76e'; ctx.beginPath(); ctx.arc(56, -2, 11, 0, 7); ctx.fill();
-  ctx.strokeStyle = '#c9a43e'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.arc(56, -2, 11, 0, 7); ctx.stroke();
+  ctx.translate(-IW*0.58, 0);
+  ctx.rotate(micWob);
+  ctx.strokeStyle = '#c9c4e8'; ctx.lineWidth = 6*k; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, IH*0.42); ctx.lineTo(IW*0.06, -IH*0.12); ctx.stroke();
+  ctx.strokeStyle = '#efeaff'; ctx.lineWidth = 4*k;
+  ctx.beginPath(); ctx.moveTo(IW*0.055, -IH*0.10); ctx.lineTo(IW*0.075, -IH*0.16); ctx.stroke();
+  ctx.fillStyle = '#ffd76e'; ctx.strokeStyle = '#c9a43e'; ctx.lineWidth = 2.5*k;
+  ctx.beginPath(); ctx.arc(IW*0.083, -IH*0.20, 12*k, 0, 7); ctx.fill(); ctx.stroke();
   ctx.restore();
 
   // 하트 보내기: 머리 위 커다란 하트
   if (actionAnim && actionAnim.type === 'heart') {
     var pop = Math.min(1, actionAnim.t / 0.35);
-    ctx.font = Math.round((26 + pop*24) * 1.4) + 'px sans-serif';
+    ctx.font = Math.round((26 + pop*24) * 1.4 * k) + 'px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('💖', 0, -190 - pop*14);
+    ctx.fillText('💖', 0, -IH*0.55 - pop*14);
   }
-  ctx.restore();
-}
-
-function drawPart(img, x, y, rot, scale){
-  if (!img || !img.complete || img.width === 0) return; // 아직 로딩 중이면 건너뛰기
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot);
-  var w = img.width * scale, h = img.height * scale;
-  ctx.drawImage(img, -w/2, -h/2, w, h);
-  ctx.restore();
-}
-
-function drawArm(side, ang, time){
-  // 어깨 위치
-  var sx = side * 46, sy = -42;
-  ctx.save();
-  ctx.translate(sx, sy);
-  ctx.rotate(side * ang);
-  drawPart(SVGPARTS.arm, 0, 34, 0, 0.95);
   ctx.restore();
 }
 
