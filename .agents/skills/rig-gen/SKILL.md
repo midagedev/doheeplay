@@ -16,13 +16,17 @@ description: >
 그건 고장이 아니라 예약 시간표다.
 
 - 엔드포인트: `https://ws.mogera-goblin.ts.net:8443` (tailnet 안에서만 동작)
-- 인증은 없지만 예의가 있다: `owner`는 항상 `"dohee"`, 부탁 1건당 잡 1개, 동시에 2잔 넘지 않게.
+- **모든 curl에 `-K /home/dohee/.config/signalbox.curl`를 붙인다**(GET도). 그 파일이 랙의 열쇠(토큰)를 담고 있다 — 파일
+  내용을 읽거나 보여주거나 다른 곳에 옮기지 않는다. 열쇠가 없으면 `401`이 온다: 아빠에게 알린다.
+- 예의: 부탁 1건당 잡 1개, 동시에 2개 넘지 않게. 잡의 주인은 랙이 알아서 붙인다(`owner`를 보내지 않는다).
+- `tag`는 영어 소문자·숫자·`-`만 쓴다(예: `dohee-cat-1010`). 한글 태그는 거절된다.
 - **차례는 우선순위로 정해진다**(시간대 제한은 없다, 2026-10-04부터). 카드가 비어 있으면 바로
   시작하고, 다른 작업이 돌고 있으면 줄을 선다. 제출 응답에 `eta_s`(예상 대기 초)가 오면
   "약 ○분 뒤에 시작돼!"처럼 알려 준다. `eta_s`가 `null`이면 얼마나 걸릴지 모르는 것이다 —
   지어내지 말고 "지금 아빠 작업이 길게 도는 중이라 조금 기다려야 해"라고만 한다.
-- dohee는 **우선순위를 올리지 않는다**(기본 0 그대로). 아빠 작업을 제칠 수는 있지만 그건 아빠
-  몫이다. 노래는 예의상 `"card": "3090"`로 낸다 — 큰 그림카드(A6000)를 비워 두는 배려다.
+- 본문에 `priority`, `owner`, `card`를 넣지 않는다. 차례는 랙이 정하고, 그림·노래·영상은 모두 큰
+  그림카드(A6000)에서 돈다. 허락되지 않은 키를 보내면 `403`이 오고 그 키 이름을 알려 준다 — 그 키를
+  빼고 한 번 다시 보낸다.
 
 ## 명령 규칙 (승인 프롬프트를 절대 띄우지 않는다)
 
@@ -38,32 +42,32 @@ description: >
 
    ```bash
    # 그림
-   curl -sS -X POST https://ws.mogera-goblin.ts.net:8443/gen/image -H "Content-Type: application/json" -d '{
+   curl -sS -K /home/dohee/.config/signalbox.curl -X POST https://ws.mogera-goblin.ts.net:8443/gen/image -H "Content-Type: application/json" -d '{
      "prompt": "<영어 장면 묘사, 아래 규칙대로>",
-     "owner": "dohee", "tag": "dohee-<주제>-<오늘날짜>", "wh": "1024 1024" }'
+     "tag": "dohee-<영어주제>-<오늘날짜>", "wh": "1024 1024" }'
 
    # 노래 (가사 필수! 짧게 직접 쓴다 — 가사가 짧으면 노래도 짧게(~20초) 나온다)
-   curl -sS -X POST https://ws.mogera-goblin.ts.net:8443/gen/music -H "Content-Type: application/json" -d '{
+   curl -sS -K /home/dohee/.config/signalbox.curl -X POST https://ws.mogera-goblin.ts.net:8443/gen/music -H "Content-Type: application/json" -d '{
      "style": "<장르·분위기, 영어>", "lyrics": "[verse]\n<가사>\n[chorus]\n<가사>",
-     "owner": "dohee", "tag": "dohee-<주제>-<오늘날짜>", "card": "3090" }'
+     "tag": "dohee-<영어주제>-<오늘날짜>" }'
 
    # 영상 (짧은 클립 2~5초, 몇 분 걸린다)
-   curl -sS -X POST https://ws.mogera-goblin.ts.net:8443/gen/video -H "Content-Type: application/json" -d '{
-     "prompt": "<영어 묘사>", "owner": "dohee", "tag": "dohee-<주제>-<오늘날짜>" }'
+   curl -sS -K /home/dohee/.config/signalbox.curl -X POST https://ws.mogera-goblin.ts.net:8443/gen/video -H "Content-Type: application/json" -d '{
+     "prompt": "<영어 묘사>", "tag": "dohee-<영어주제>-<오늘날짜>" }'
    ```
 
 2. **기다리기**: 제출 응답이 `running`이면 바로 3번으로. `queued`면 시작 안내를 먼저 보낸다
    ("랙에 주문했어!") — 응답의 `eta_s`가 있으면 "약 ○분 뒤에 시작돼"까지 붙인다.
-   이후 15초마다 `GET /jobs/<id>`를 본다.
+   이후 15초마다 `curl -sS -K /home/dohee/.config/signalbox.curl https://ws.mogera-goblin.ts.net:8443/jobs/<id>`로 본다.
    - `queued`가 오래 가면 `wait_reason`을 읽어 사람 말로 알려 준다(보통 "다른 임대가 카드를 쓰는
-     중"이다). 너무 오래 걸릴 것 같으면 잡을 취소(`POST /jobs/<id>/cancel -d '{}'`)하고
+     중"이다). 너무 오래 걸릴 것 같으면 잡을 취소(`curl -sS -K /home/dohee/.config/signalbox.curl -X POST https://ws.mogera-goblin.ts.net:8443/jobs/<id>/cancel -H "Content-Type: application/json" -d '{}'`, 내가 올린 잡만 된다)하고
      유료 그림 방법을 쓸지 아빠에게 물어본다.
-   - `failed`면 로그(`GET /jobs/<id>/log`)를 잠깐 보고 딱 1번만 다시 시도. 그래도 안 되면 솔직히 말한다.
+   - `failed`면 로그(`curl -sS -K /home/dohee/.config/signalbox.curl https://ws.mogera-goblin.ts.net:8443/jobs/<id>/log`)를 잠깐 보고 딱 1번만 다시 시도. 그래도 안 되면 솔직히 말한다.
 3. **받기**: `done`이면 잡 상세의 `artifacts`에서 파일을 고른다(그림은 `.png`, 노래는
    `song.flac`, 영상은 `.mp4`. `manifest.json`은 기록일 뿐 주지 않는다). 내려받기:
 
    ```bash
-   curl -sS -o /tmp/rig-<id>-<파일명> "https://ws.mogera-goblin.ts.net:8443/jobs/<id>/files/<파일명>"
+   curl -sS -K /home/dohee/.config/signalbox.curl -o /tmp/rig-<id>-<파일명> "https://ws.mogera-goblin.ts.net:8443/jobs/<id>/files/<파일명>"
    ```
 
 4. **보여주기**: 답장 텍스트에 그냥 `MEDIA:/tmp/rig-<id>-<파일명>` 을 쓰면(코드블록 말고)
