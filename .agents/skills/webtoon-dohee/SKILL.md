@@ -2,7 +2,7 @@
 name: webtoon-dohee
 description: >
   도희와 함께 웹툰을 만드는 진입점 스킬 — 기획, 캐릭터 디자인, 콘티(10~20컷), 컷 그리기(아빠 랙
-  rig 무료 생성 또는 도희가 직접 그린 그림), 말풍선 배치, doheeplay 사이트 공개까지 한 단계씩.
+  rig 무료 생성 또는 도희가 직접 그린 그림), 말풍선 배치, 가족 전용 웹툰 사이트 공개까지 한 단계씩.
   웹툰·만화·컷툰을 만들거나 이어 그리거나 고칠 때, "다음 화", "웹툰 만들어", "만화 그려줘",
   "컷 다시 그려", "말풍선 고쳐" 같은 요청, 그리고 웹툰 만들기 채널의 모든 작업에 이 스킬을 쓴다.
   webtoon-scenario·webtoon-panel-breakdown 등 webtoon-* 스킬은 이 스킬이 가리킬 때 읽는 참고서다.
@@ -29,21 +29,26 @@ description: >
 - **잘한 점은 구체적으로 말한다.** "좋아!"보다 "고양이가 뒤돌아보는 컷에서 끊은 거 진짜 웹툰 같아".
 - 도희가 직접 그리고 싶어 하면 언제든 그 컷을 도희 그림으로 쓴다. 특히 **캐릭터 디자인은 도희 그림을 먼저 권한다.**
 - 콘텐츠 기준은 SOUL.md의 15세 기준을 따른다(공포·싸움·슬픈 이야기·풋풋한 연애 OK, 고어·성적 내용 등은 안 됨).
-- 실명·학교·사는 곳은 웹툰에 넣지 않는다(사이트는 누구나 본다). 캐릭터 이름은 지어낸 이름으로.
+- 웹툰은 **가족만 본다**: 데이터는 비공개 레포, 사이트는 우리 집 tailnet 안에서만 열린다(게임 사이트와 다르다).
+  그래도 실명·학교·사는 곳은 넣지 않는 게 좋다 — 나중에 친구에게 보여 줄 수도 있으니까.
 
-## 파일 구조 (doheeplay 레포, 작업 폴더 `~/doheeplay`)
+## 파일 구조
+
+명령은 `~/doheeplay`에서 실행한다(도구·스크립트). 웹툰 데이터는 `~/doheeplay/webtoons/` — 이 폴더는
+**별도의 비공개 git 레포**(`midagedev/dohee-webtoons`)이고, 공개 doheeplay 레포에는 들어가지 않는다.
 
 ```
-webtoons/<slug>/metadata.json        제목·소개·날짜·태그 (목록 카드에 나온다)
-webtoons/<slug>/notes.md             시리즈 노트: 캐릭터 외형 토큰, 그림 스타일·seed, 장소, 회차 기록 (비공개)
-webtoons/<slug>/refs/                캐릭터 시트, 도희가 그린 캐릭터 그림 (비공개)
-webtoons/<slug>/epNN/script.md       그 화의 콘티 (비공개)
+webtoons/<slug>/metadata.json        제목·소개·날짜·태그 (목록에 나온다)
+webtoons/<slug>/notes.md             시리즈 노트: 캐릭터 외형 토큰, 그림 스타일·seed, 장소, 회차 기록 (사이트에 안 나옴)
+webtoons/<slug>/refs/                캐릭터 시트, 도희가 그린 캐릭터 그림 (사이트에 안 나옴)
+webtoons/<slug>/epNN/script.md       그 화의 콘티 (사이트에 안 나옴)
 webtoons/<slug>/epNN/episode.json    컷 목록: 그림 파일, 그림 지시(draw), 말풍선
 webtoons/<slug>/epNN/panels/         컷 그림 (.jpg 권장, 3MB 이하)
 ```
 
-공개 주소: `https://midagedev.github.io/doheeplay/webtoons/<slug>/` (회차는 `.../<slug>/ep01/`).
-`"draft": true`인 회차는 공개되지 않는다.
+웹툰 사이트(가족 tailnet 전용): `https://vps.mogera-goblin.ts.net:10002/` — 회차는 `.../webtoons/<slug>/ep01/`.
+`npm run webtoon-site`를 실행해야 사이트에 반영된다. `"draft": true`인 회차는 사이트에 나오지 않는다.
+도희 아이패드·폰이 tailnet에 연결돼 있어야 열린다(Mattermost가 열리면 이것도 열린다).
 
 ### episode.json
 
@@ -80,6 +85,7 @@ webtoons/<slug>/epNN/panels/         컷 그림 (.jpg 권장, 3MB 이하)
 `ls webtoons` 로 있는 시리즈를 본다. 이어 그리기·고치기면 그 시리즈의 `notes.md`와 최근 `script.md`를 **먼저 읽는다**.
 새 시리즈면 1단계부터. "다음 화"면 `npm run new-webtoon -- <slug> --episode` 후 3단계부터.
 명령은 SOUL·rig-gen 규칙대로 **한 번에 하나**(`&&`, `;`, `$( )`, `-c` 없이).
+단계(콘티 확정, 컷 다 그림 등)가 끝날 때마다 6단계 3번처럼 `webtoons` 레포에 커밋·푸시해 둔다 — 작업 중간 백업이다.
 
 ### 1. 기획 (새 시리즈)
 
@@ -148,9 +154,10 @@ webtoon-scenario §5~8(훅→상승→반전→궁금한 끝, 대사 위주, 1�
 ### 6. 공개
 
 1. `episode.json`의 `"draft": true`를 지우고(또는 false), 회차 `title`을 정한다. 첫 화면 `metadata.json`의 소개 문장도 다듬는다.
-2. `npm run check` 통과 → `npm run webtoon-preview -- <slug> epNN` PASS.
-3. `git pull --rebase` → `git add webtoons/<slug>` → `git commit -m "웹툰 <제목>: <몇 화> <무엇을 했는지>"` → `git push` (한 명령씩).
-4. 링크를 준다: `https://midagedev.github.io/doheeplay/webtoons/<slug>/ep01/` (올린 뒤 1분쯤 지나야 열린다).
+2. `npm run validate` 통과 → `npm run webtoon-preview -- <slug> epNN` PASS → `npm run webtoon-site`.
+3. 비공개 레포에 저장(백업): `git -C webtoons add <slug>` → `git -C webtoons commit -m "<제목>: <몇 화> <무엇을 했는지>"` →
+   `git -C webtoons push` (한 명령씩). doheeplay 레포에는 웹툰 파일을 커밋하지 않는다.
+4. 링크를 준다: `https://vps.mogera-goblin.ts.net:10002/webtoons/<slug>/ep01/` (바로 열린다).
 5. `notes.md`의 회차 기록 표에 한 줄(핵심 사건·심은 떡밥·끝 장면)을 채운다 — 다음 화의 출발점이다.
 6. 마무리 한마디: 이번 화에서 특히 좋았던 점 하나 + 다음 화에 해 볼 만한 것 하나(예: "다음엔 도희가 표지 컷을 그려 보면 어때?").
 
@@ -163,5 +170,5 @@ webtoon-scenario §5~8(훅→상승→반전→궁금한 끝, 대사 위주, 1�
 | 회차당 50+ 패널 | 10~20컷 |
 | codex 이미지, 한글 말풍선을 그림에 그려 넣음 | 랙(webtoon-draw) 또는 도희 그림, 말풍선은 HTML 글자 |
 | 레퍼런스 시트를 참고 이미지로 넣어 일관성 유지 | 외형 토큰 + seed + 식별 표식 (랙은 참고 이미지를 못 받는다) |
-| `_workspace/` 산출물 | `webtoons/<slug>/` (notes.md, epNN/script.md, episode.json) |
+| `_workspace/` 산출물 | `webtoons/<slug>/` (비공개 레포; notes.md, epNN/script.md, episode.json) |
 | 사용자 승인 없이 끝까지 자동 | 단계마다 도희와 확인 |
