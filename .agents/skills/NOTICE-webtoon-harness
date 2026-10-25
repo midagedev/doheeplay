@@ -1,0 +1,12 @@
+webtoon-harness
+https://github.com/revfactory/webtoon-harness (commit c05f30d, 2026-06-28)
+Licensed under the MIT License (see LICENSE-webtoon-harness).
+
+Vendored here as Hermes skills for the doheeplay bot:
+- .agents/skills/webtoon-{orchestrator,trend-research,scenario,panel-breakdown,panel-render,assembly}/
+  are the upstream .claude/skills/ directories, unchanged except for the first sentence of each
+  SKILL.md description (marked "[doheeplay]"), which routes requests to webtoon-dohee instead.
+- .agents/skills/webtoon-orchestrator/references/agents/ holds the upstream .claude/agents/ role
+  cards, unchanged. Hermes does not load them as agents; webtoon-dohee reads them as role notes.
+- .agents/skills/webtoon-dohee/ is new: the entry point that adapts the harness to this repo
+  (rig-gen images or the child's own drawings, 10–20 panels, HTML-overlay bubbles, GitHub Pages).
