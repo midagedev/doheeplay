@@ -1,0 +1,229 @@
+:root {
+  color-scheme: light;
+  --ink: #1f2430;
+  --muted: #626a75;
+  --paper: #fffaf2;
+  --line: #243142;
+  --sun: #f8c537;
+  --sea: #176b87;
+  --strip: 720px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+}
+
+.webtoon-body {
+  margin: 0;
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "Malgun Gothic", ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background: #f3efe6;
+}
+
+a {
+  color: inherit;
+}
+
+.wt-header {
+  width: min(var(--strip), 100%);
+  margin: 0 auto;
+  padding: 28px 16px 20px;
+}
+
+.wt-series {
+  color: var(--sea);
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.wt-header h1 {
+  margin: 6px 0 0;
+  font-size: clamp(1.5rem, 6vw, 2.2rem);
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
+.wt-description {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+/* The strip: panels stacked full width, like a phone webtoon app. */
+.wt-strip {
+  width: min(var(--strip), 100%);
+  margin: 0 auto;
+  padding-bottom: 32px;
+  background: #ffffff;
+}
+
+.panel {
+  position: relative;
+  margin: 0;
+  container-type: inline-size;
+}
+
+.panel img,
+.panel .blank {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Bubbles: left/top/width are percent of the panel; type scales with the panel width. */
+.bubble {
+  position: absolute;
+  margin: 0;
+  padding: 0.55em 0.85em;
+  font-size: clamp(13px, 4.2cqw, 24px);
+  line-height: 1.4;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  color: #111111;
+  background: #ffffff;
+  border: 2px solid #111111;
+  border-radius: 1.4em;
+}
+
+.bubble.thought {
+  border-style: dashed;
+  border-radius: 2.2em;
+}
+
+.bubble.shout {
+  font-weight: 800;
+  border-width: 3px;
+  border-radius: 0.35em;
+  box-shadow: 4px 4px 0 #111111;
+}
+
+.bubble.narration {
+  text-align: left;
+  background: #fff6d2;
+  border-radius: 4px;
+}
+
+.bubble.sfx {
+  padding: 0;
+  font-size: clamp(22px, 8cqw, 44px);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #ffffff;
+  background: none;
+  border: 0;
+  -webkit-text-stroke: 2px #111111;
+  paint-order: stroke fill;
+  text-shadow: 3px 3px 0 #111111;
+}
+
+/* Tail: a small triangle under the bubble pointing down toward the speaker. */
+.bubble.tail-left::after,
+.bubble.tail-right::after {
+  content: "";
+  position: absolute;
+  bottom: -0.9em;
+  width: 0;
+  height: 0;
+  border-top: 1em solid #111111;
+  border-left: 0.45em solid transparent;
+  border-right: 0.45em solid transparent;
+}
+
+.bubble.tail-left::after {
+  left: 18%;
+}
+
+.bubble.tail-right::after {
+  right: 18%;
+}
+
+/* The shout's hard shadow covers the top of a normal tail; give it a longer one. */
+.bubble.shout.tail-left::after,
+.bubble.shout.tail-right::after {
+  bottom: -1.15em;
+  border-top-width: 1.25em;
+}
+
+.bubble.thought::after,
+.bubble.narration::after,
+.bubble.sfx::after {
+  content: none;
+}
+
+.wt-nav {
+  width: min(var(--strip), 100%);
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.wt-nav-link {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.wt-nav-link.is-off {
+  opacity: 0.35;
+}
+
+.wt-list {
+  width: min(var(--strip), 100%);
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+.wt-list ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.wt-episode {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 10px;
+  border: 3px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.wt-episode img,
+.wt-thumb-blank {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #e8e2d6;
+}
+
+.wt-episode strong {
+  display: block;
+  font-size: 1.1rem;
+  word-break: keep-all;
+}
+
+.wt-episode small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}

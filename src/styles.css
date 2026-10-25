@@ -170,6 +170,11 @@ h1 {
   background: rgb(217 93 118 / 18%);
 }
 
+.shelf-title {
+  margin: 44px 0 16px;
+  font-size: 1.6rem;
+}
+
 .not-found {
   min-height: 100vh;
   display: grid;

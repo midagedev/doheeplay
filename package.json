@@ -5,10 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-site.mjs",
-    "check": "npm run validate && npm run build",
+    "check": "npm run validate && npm run build && node scripts/test-webtoon.mjs --no-browser",
     "new-game": "node scripts/new-game.mjs",
-    "validate": "node scripts/validate-game.mjs",
-    "playtest": "node scripts/playtest.mjs"
+    "new-webtoon": "node scripts/new-webtoon.mjs",
+    "validate": "node scripts/validate-game.mjs && node scripts/validate-webtoon.mjs",
+    "playtest": "node scripts/playtest.mjs",
+    "webtoon-preview": "node scripts/webtoon-preview.mjs",
+    "test:webtoon": "node scripts/test-webtoon.mjs",
+    "webtoon-draw": "node scripts/webtoon-draw.mjs"
   },
   "engines": {
     "node": ">=22"

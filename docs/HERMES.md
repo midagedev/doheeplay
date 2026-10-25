@@ -82,3 +82,20 @@ They come from [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/
 the commit in `.upstream-sha`.
 
 One-time setup on a new machine: `npm install` and `npx playwright install chromium`.
+
+## Webtoons
+
+`webtoons/<slug>/` holds webtoon series; the site builds each published episode into a
+vertical-scroll viewer at `webtoons/<slug>/epNN/`. Speech bubbles are HTML text over the panel
+images (`episode.json` → `bubbles`), so no image model has to draw Korean.
+
+- Entry skill: `.agents/skills/webtoon-dohee` (step by step with the child: plan → characters →
+  10–20 panel storyboard → draw → bubbles → publish).
+- Method references: the `webtoon-*` skills vendored from
+  [webtoon-harness](https://github.com/revfactory/webtoon-harness) (MIT; see
+  `LICENSE-webtoon-harness` and `NOTICE-webtoon-harness`).
+- Commands: `npm run new-webtoon -- <slug> "<title>"` (or `--episode`),
+  `npm run webtoon-draw -- <slug> epNN [--only 1,2] [--redo 3]` (rig jobs, resumable; exit 2 =
+  run again), `npm run webtoon-preview -- <slug> epNN` (phone-width screenshots + bubble
+  spill/overlap check), `npm run test:webtoon`.
+- `notes.md`, `refs/`, `script.md`, `draw-state.json` and draft episodes are never published.

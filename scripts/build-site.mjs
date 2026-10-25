@@ -3,6 +3,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateGames } from "./validate-game.mjs";
+import { validateWebtoons } from "./validate-webtoon.mjs";
+import { buildWebtoons } from "./webtoon-render.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = path.join(repoRoot, "dist");
@@ -30,7 +32,33 @@ function renderControls(controls = []) {
   return `<p class="controls">${controls.map(escapeHtml).join(" · ")}</p>`;
 }
 
-function renderIndex(games) {
+function renderWebtoonSection(webtoons) {
+  if (webtoons.length === 0) {
+    return "";
+  }
+  const cards = webtoons
+    .map(({ slug, metadata, episodes }) => {
+      const tags = renderTags(metadata.tags || []);
+      return `
+        <article class="game-card">
+          <a class="game-link" href="./webtoons/${escapeHtml(slug)}/">
+            <span class="game-kicker">${escapeHtml(metadata.createdAt)} · ${episodes.length}화</span>
+            <h2>${escapeHtml(metadata.title)}</h2>
+            <p>${escapeHtml(metadata.description)}</p>
+            <span class="play-button">Read</span>
+          </a>
+          <div class="tags">${tags}</div>
+        </article>`;
+    })
+    .join("\n");
+  return `
+      <h2 class="shelf-title">웹툰</h2>
+      <section class="game-grid" aria-label="Webtoons">
+        ${cards}
+      </section>`;
+}
+
+function renderIndex(games, webtoons) {
   const cards = games
     .map(({ slug, metadata }) => {
       const title = metadata.title;
@@ -69,7 +97,7 @@ function renderIndex(games) {
       </header>
       <section class="game-grid" aria-label="Games">
         ${cards}
-      </section>
+      </section>${renderWebtoonSection(webtoons)}
     </main>
   </body>
 </html>
@@ -112,9 +140,17 @@ async function build() {
   await fs.rm(distRoot, { recursive: true, force: true });
   await fs.mkdir(distRoot, { recursive: true });
 
+  const { series: webtoons } = await validateWebtoons({ quiet: true });
+  webtoons.sort((a, b) => {
+    const dateCompare = String(b.metadata.createdAt).localeCompare(String(a.metadata.createdAt));
+    return dateCompare || String(a.metadata.title).localeCompare(String(b.metadata.title));
+  });
+
   await Promise.all(games.map(copyGame));
+  await buildWebtoons(webtoons, distRoot);
   await fs.copyFile(path.join(srcRoot, "styles.css"), path.join(distRoot, "styles.css"));
-  await fs.writeFile(path.join(distRoot, "index.html"), renderIndex(games));
+  await fs.copyFile(path.join(srcRoot, "webtoon.css"), path.join(distRoot, "webtoon.css"));
+  await fs.writeFile(path.join(distRoot, "index.html"), renderIndex(games, webtoons));
   await fs.writeFile(path.join(distRoot, "404.html"), render404());
   await fs.writeFile(path.join(distRoot, ".nojekyll"), "");
   await fs.writeFile(
@@ -122,7 +158,12 @@ async function build() {
     `${JSON.stringify(games.map(({ slug, metadata }) => ({ slug, ...metadata })), null, 2)}\n`
   );
 
-  console.log(`Built ${games.length} game${games.length === 1 ? "" : "s"} into dist/.`);
+  await fs.writeFile(
+    path.join(distRoot, "webtoons.json"),
+    `${JSON.stringify(webtoons.map(({ slug, metadata, episodes }) => ({ slug, ...metadata, episodes: episodes.map(({ name }) => name) })), null, 2)}\n`
+  );
+
+  console.log(`Built ${games.length} game${games.length === 1 ? "" : "s"} and ${webtoons.length} webtoon${webtoons.length === 1 ? "" : "s"} into dist/.`);
 }
 
 build().catch((error) => {
