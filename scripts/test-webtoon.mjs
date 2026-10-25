@@ -105,8 +105,15 @@ async function expectRefused(mutate, needle) {
   });
 }
 
-await check("t1 valid series: one published episode, draft hidden", async () => {
-  const { series } = await validateWebtoons({ root: await makeRoot(), quiet: true });
+await check("t1 valid series: one published episode, draft hidden; git files ignored", async () => {
+  const root = await makeRoot(async ({ root: r, series: dir }) => {
+    // webtoons/ is a clone of the private repo: .git, a root README and .DS_Store must not count.
+    await fs.mkdir(path.join(r, "webtoons", ".git", "objects"), { recursive: true });
+    await fs.writeFile(path.join(r, "webtoons", ".git", "HEAD"), "ref: refs/heads/main\n");
+    await fs.writeFile(path.join(r, "webtoons", "README.md"), "# 도희 웹툰\n");
+    await fs.writeFile(path.join(dir, ".DS_Store"), "x");
+  });
+  const { series } = await validateWebtoons({ root, quiet: true });
   assert.equal(series.length, 1);
   assert.deepEqual(series[0].episodes.map(({ name }) => name), ["ep01"]);
 });

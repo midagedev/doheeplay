@@ -66,8 +66,13 @@ async function readJson(filePath, errors, rel) {
   }
 }
 
+// webtoons/ is a git checkout: skip .git, .DS_Store and other dot entries everywhere.
+async function listDir(dir) {
+  return (await fs.readdir(dir, { withFileTypes: true })).filter((entry) => !entry.name.startsWith("."));
+}
+
 async function walk(dir) {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const entries = await listDir(dir);
   const files = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
@@ -276,7 +281,7 @@ async function validateSeries(slug, dir, rel) {
     fail(errors, `webtoons/${slug} is too large (${totalBytes} bytes; max ${LIMITS.maxSeriesBytes})`);
   }
 
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const entries = await listDir(dir);
   for (const entry of entries) {
     if (entry.isDirectory() && !episodePattern.test(entry.name) && entry.name !== "refs") {
       fail(errors, `webtoons/${slug}/${entry.name} is not an episode folder (use ep01, ep02, ...) or refs`);
@@ -307,7 +312,7 @@ export async function validateWebtoons({ root = defaultRoot, quiet = false, incl
   let drafts = 0;
 
   if (await pathExists(webtoonsRoot)) {
-    const entries = await fs.readdir(webtoonsRoot, { withFileTypes: true });
+    const entries = await listDir(webtoonsRoot);
     const dirs = entries.filter((entry) => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of dirs) {
       const slug = entry.name;
