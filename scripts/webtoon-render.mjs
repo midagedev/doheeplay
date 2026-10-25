@@ -1,8 +1,9 @@
-// Render validated webtoons (from validate-webtoon.mjs) into dist/webtoons/.
-//   dist/webtoons/<slug>/index.html          episode list
-//   dist/webtoons/<slug>/epNN/index.html     vertical-scroll viewer, bubbles as real text
-//   dist/webtoons/<slug>/epNN/panels/*       copied images
-// notes.md and draft episodes are never published.
+// Render validated webtoons (from validate-webtoon.mjs) into <out>/webtoons/ — the tailnet
+// webtoon site (build-webtoon-site.mjs) and the phone preview (webtoon-preview.mjs).
+//   <out>/webtoons/<slug>/index.html          episode list
+//   <out>/webtoons/<slug>/epNN/index.html     vertical-scroll viewer, bubbles as real text
+//   <out>/webtoons/<slug>/epNN/panels/*       copied images
+// notes.md, refs/, script.md and draft episodes are never copied.
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { GAPS } from "./validate-webtoon.mjs";
@@ -92,10 +93,10 @@ export function renderSeriesIndex(series) {
     return `<li><a class="wt-episode" href="./${name}/">${thumb}<span><strong>${escapeHtml(episode.title)}</strong><small>${escapeHtml(episode.createdAt)} · ${episode.panels.length}컷</small></span></a></li>`;
   }).join("\n        ");
   return page({
-    title: `${metadata.title} · Dohee Play`,
+    title: `${metadata.title} · 도희 웹툰`,
     cssHref: "../../webtoon.css",
     body: `    <header class="wt-header">
-      <a class="wt-series" href="../../">Dohee Play</a>
+      <a class="wt-series" href="../../">도희 웹툰</a>
       <h1>${escapeHtml(metadata.title)}</h1>
       <p class="wt-description">${escapeHtml(metadata.description)}</p>
     </header>

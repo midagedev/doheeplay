@@ -26,7 +26,7 @@ async function exists(filePath) {
 function notesTemplate(title) {
   return `# ${title} — 시리즈 노트
 
-웹툰을 만들 때마다 먼저 읽고, 바뀐 것을 여기에 적는다. 공개 사이트에는 올라가지 않는다(레포는 공개).
+웹툰을 만들 때마다 먼저 읽고, 바뀐 것을 여기에 적는다. 웹툰 사이트에는 나오지 않는다(비공개 레포에만 있다).
 
 ## 한 줄 이야기
 

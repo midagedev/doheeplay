@@ -11,6 +11,7 @@
 //   C6 draw blocks are validated; a draft may wait for undrawn panels       → t3 (draw rules), t7
 //   C7 webtoon-draw resumes rig jobs across runs, retries a failed job once,
 //      sends the key only through the -K file                               → t8
+//   C8 the tailnet site lists published series only and swaps in atomically → t9
 //
 //   npm run test:webtoon            # all, including headless Chromium
 //   npm run test:webtoon -- --no-browser
@@ -22,6 +23,7 @@ import zlib from "node:zlib";
 import { validateWebtoons } from "./validate-webtoon.mjs";
 import { buildWebtoons } from "./webtoon-render.mjs";
 import http from "node:http";
+import { buildWebtoonSite } from "./build-webtoon-site.mjs";
 import { drawEpisode } from "./webtoon-draw.mjs";
 import { findLayoutProblems, previewEpisode } from "./webtoon-preview.mjs";
 
@@ -255,6 +257,21 @@ await check("t8 webtoon-draw: a failed job is retried once, then the panel is re
   } finally {
     rigSim.server.close();
   }
+});
+
+await check("t9 webtoon site: home lists published series, css copied, old output replaced", async () => {
+  const root = await makeRoot();
+  const outDir = path.join(root, "webtoon-site");
+  await fs.mkdir(outDir, { recursive: true });
+  await fs.writeFile(path.join(outDir, "stale.html"), "old");
+  const result = await buildWebtoonSite({ root, outDir, quiet: true });
+  assert.deepEqual(result, { series: 1, episodes: 1 });
+  const home = await fs.readFile(path.join(outDir, "index.html"), "utf8");
+  assert.ok(home.includes('href="./webtoons/rain-cat/"') && home.includes("비 오는 고양이"));
+  await fs.access(path.join(outDir, "webtoon.css"));
+  await fs.access(path.join(outDir, "webtoons", "rain-cat", "ep01", "index.html"));
+  await assert.rejects(fs.access(path.join(outDir, "stale.html")), "the old build is replaced, not merged");
+  await assert.rejects(fs.access(`${outDir}.tmp`), "no staging folder left behind");
 });
 
 await check("t4 build: escaped text, no notes.md, no draft, navigation", async () => {

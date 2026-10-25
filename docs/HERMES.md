@@ -85,9 +85,11 @@ One-time setup on a new machine: `npm install` and `npx playwright install chrom
 
 ## Webtoons
 
-`webtoons/<slug>/` holds webtoon series; the site builds each published episode into a
-vertical-scroll viewer at `webtoons/<slug>/epNN/`. Speech bubbles are HTML text over the panel
-images (`episode.json` → `bubbles`), so no image model has to draw Korean.
+Webtoon data does not live in this public repo. On the VPS, `webtoons/` (gitignored) is a clone of
+the private repo `midagedev/dohee-webtoons`; `npm run webtoon-site` builds a vertical-scroll viewer
+into `webtoon-site/` (gitignored), which Tailscale Serve publishes to the family tailnet only at
+`https://vps.mogera-goblin.ts.net:10002/`. Speech bubbles are HTML text over the panel images
+(`episode.json` → `bubbles`), so no image model has to draw Korean.
 
 - Entry skill: `.agents/skills/webtoon-dohee` (step by step with the child: plan → characters →
   10–20 panel storyboard → draw → bubbles → publish).
@@ -97,5 +99,5 @@ images (`episode.json` → `bubbles`), so no image model has to draw Korean.
 - Commands: `npm run new-webtoon -- <slug> "<title>"` (or `--episode`),
   `npm run webtoon-draw -- <slug> epNN [--only 1,2] [--redo 3]` (rig jobs, resumable; exit 2 =
   run again), `npm run webtoon-preview -- <slug> epNN` (phone-width screenshots + bubble
-  spill/overlap check), `npm run test:webtoon`.
-- `notes.md`, `refs/`, `script.md`, `draw-state.json` and draft episodes are never published.
+  spill/overlap check), `npm run webtoon-site`, `npm run test:webtoon`.
+- `notes.md`, `refs/`, `script.md`, `draw-state.json` and draft episodes never reach the site.

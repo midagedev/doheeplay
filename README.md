@@ -4,7 +4,7 @@ Dohee Play is a tiny static game shelf for HTML games.
 
 The intended flow is:
 
-1. Hermes creates a new game in `games/<slug>/` or a webtoon episode in `webtoons/<slug>/` (see `docs/HERMES.md`).
+1. Hermes creates a new game in `games/<slug>/`. (Webtoons use this repo's tools but keep their data in a private repo — see `docs/HERMES.md`.)
 2. The repo validates the game with `npm run check`.
 3. GitHub Pages publishes `dist/` after a push to `main`.
 

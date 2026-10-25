@@ -12,7 +12,8 @@
     "playtest": "node scripts/playtest.mjs",
     "webtoon-preview": "node scripts/webtoon-preview.mjs",
     "test:webtoon": "node scripts/test-webtoon.mjs",
-    "webtoon-draw": "node scripts/webtoon-draw.mjs"
+    "webtoon-draw": "node scripts/webtoon-draw.mjs",
+    "webtoon-site": "node scripts/build-webtoon-site.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Validate webtoons/<slug>/ series before they are built into the site.
+// Validate webtoons/<slug>/ series before they are built into the tailnet webtoon site.
+// webtoons/ is a clone of the private repo midagedev/dohee-webtoons (gitignored here).
 //
 // Layout (see .agents/skills/webtoon-dohee/SKILL.md):
 //   webtoons/<slug>/metadata.json        title, description, createdAt, tags?
-//   webtoons/<slug>/notes.md             series bible (characters, style, places) — not published
-//   webtoons/<slug>/refs/                character sheets and the child's drawings — not published
+//   webtoons/<slug>/notes.md             series bible (characters, style, places) — not on the site
+//   webtoons/<slug>/refs/                character sheets and the child's drawings — not on the site
 //   webtoons/<slug>/epNN/episode.json    title, createdAt, draft?, panels[]
 //   webtoons/<slug>/epNN/panels/<file>   panel images (png/jpg/webp)
 //

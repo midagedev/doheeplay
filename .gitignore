@@ -4,3 +4,8 @@ node_modules/
 npm-debug.log*
 
 playtest-output/
+
+# Webtoon data is its own private repo (midagedev/dohee-webtoons), cloned here on the VPS;
+# the built viewer is served on the tailnet only. Neither goes to this public repo.
+webtoons/
+webtoon-site/
